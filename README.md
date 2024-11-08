@@ -8,4 +8,4 @@ Upon receiving the image and palette, the application will begin converting usin
 Автор: MKSO4KA  
 Email: mk06ru@gmail.com  
 
-Обратите внимание, что класс `Converter` не может использоваться без упоминания автора.
+Обратите внимание, что класс `ColorApproximater` не может использоваться без упоминания автора.
