@@ -5,6 +5,21 @@ using System.Text;
 using System.Xml.Linq;
 using Dithering;
 
+
+
+// This code is based on the "CSharp-Dithering" project by mcraiha Kaarlo Räihä.
+// The source code is available at: https://github.com/mcraiha/CSharp-Dithering
+// License: Unlicense
+//
+// The rest of this project is licensed under: GNU General Public License v3.0
+// Этот код основан на проекте "CSharp-Dithering" авторства mcraiha Kaarlo Räihä.
+// Исходный код доступен по ссылке: https://github.com/mcraiha/CSharp-Dithering
+// Лицензия: Unlicense
+//
+// Остальная часть данного проекта защищена лицензией: GNU General Public License v3.0
+
+
+
 namespace ConsoleApp2
 {
     internal class Program
@@ -893,6 +908,14 @@ namespace Dithering
         }
     }
 
+    /// <summary>
+    /// This code is the intellectual property of MKSO4KA (Mixailkin) and is protected by copyright law.
+    /// Unauthorized copying, modification, or distribution of this code without explicit permission from the author is strictly prohibited.
+    /// 
+    /// License: GNU General Public License v3.0
+    /// 
+    /// For inquiries, please contact the author at: mk06ru@gmail.com
+    /// </summary>
     public partial class ColorApproximater
     {
         public static string[] TilesDefault
