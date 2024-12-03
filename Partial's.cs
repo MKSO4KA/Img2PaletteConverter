@@ -4,75 +4,11 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Text;
+using System.Dynamic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-/*
-LATER
-
-
-internal class Program
-    {
-        static async Task Main(string[] args)
-        {
-            string PhotoPath, TilesPath, TotalPath;
-        photopathNotFound:
-            Console.WriteLine("Введите путь к фото(без .jpg и номера)");
-            PhotoPath = Console.ReadLine();
-            if (!File.Exists(PhotoPath + " (1).jpg"))
-            {
-                Console.WriteLine("Файл не найден. Пожалуйста, проверьте путь и попробуйте снова.");
-                goto photopathNotFound;
-            }
-            Console.WriteLine("Введите путь к тайлам");
-            TilesPath = Console.ReadLine();
-            if (!File.Exists(TilesPath))
-            {
-                Console.WriteLine("Файл не найден. Без пути к тайлам - использую дефолтные тайлы.");
-            }
-            Console.WriteLine("Введите путь к желаемому выходному файлу");
-            TotalPath = Console.ReadLine();
-            if (!File.Exists(TotalPath))
-            {
-                Console.WriteLine("Файл не найден. Без пути к желаемому выходному файлу сохраню в стандартй диектории(той, что создал плагин).");
-            }
-
-            using (SemaphoreSlim semaphore = new SemaphoreSlim(3)) // Ограничиваем до 3 потоков
-            {
-                List<Task> tasks = new List<Task>();
-
-                for (int i = -2; i < 300; i += 1) // Предполагаем, что у вас 300 фото
-                {
-                    await semaphore.WaitAsync(); // Ждем, пока не освободится место
-
-                    // Запускаем задачу
-                    tasks.Add(Task.Run(async () =>
-                    {
-                        try
-                        {
-                            PhotoTileConverter converter = new PhotoTileConverter(PhotoPath + $" ({i}).jpg", TilesPath, TotalPath + $"\\photo{i}.txt");
-                            await converter.Convert(i); // Выполняем конвертацию асинхронно
-                        }
-                        catch (Exception ex) // Обработка исключений
-                        {
-                            Console.WriteLine($"Произошла ошибка при конвертации: {ex.Message}");
-                        }
-                        finally
-                        {
-                            semaphore.Release(); // Освобождаем семафор
-                        }
-                    }));
-                }
-
-                // Ожидаем завершения всех задач
-                await Task.WhenAll(tasks);
-            }
-        }
-    }
-
-
-*/
 namespace ConsoleApp2
 {
     partial class Pixel
@@ -144,8 +80,36 @@ namespace Dithering
     // Перенёс Сюда, ибо это каец, как много строк.
     partial class ColorApproximater
     {
-        // ПОМЕНЯТЬ МЕСТАМИ ОБЯЗАТЕЛЬНО!!!
-        private static string[] _grayDefault =
+        public static bool SetTiles(List<string> rawTiles)
+        {
+            //"1:4:29:000000:Block:Torches:ShadowPaint"
+            //          Example
+            //string input = "1:4:29:000000:Block:Torches:ShadowPaint";
+            //string[] elements = input.Split(':'); // 7
+            if (!(rawTiles[0].Split(':').Length == 7))
+                return false;
+            _tilesDefault = rawTiles.ToArray();
+            return true;
+        }
+        public static bool SetGray()
+        {
+            if ( _tilesDefault.Length == 0) return false;
+            List<string> grayPalette = new List<string>();
+            (byte, byte, byte) color;
+            string[] palette = _tilesDefault.ToArray();
+            foreach (var tile in palette)
+            {
+                color = Pixel.ToBytes(tile.Split(':')[3]);
+                // Проверка, является ли цвет градацией серого
+                if ((color.Item1 == color.Item2 && color.Item2 == color.Item3))
+                {
+                    grayPalette.Add(tile);
+                }
+            }
+            _tilesDefault = grayPalette.ToArray();
+            return true;
+        }
+        private static string[] _tilesDefault =
             {
 
             "1:4:29:000000:Block:Torches:ShadowPaint",
@@ -3641,7 +3605,7 @@ namespace Dithering
 
 
             };
-        private static string[] _tilesDefault = { "1:4:29:000000:Block:Torches:ShadowPaint",
+        private static string[] _grayDefault = { "1:4:29:000000:Block:Torches:ShadowPaint",
 "1:39:29:010101:Block:RedBrick:ShadowPaint",
 "1:2:29:020202:Block:Grass:ShadowPaint",
 "1:1:29:030303:Block:Stone:ShadowPaint",
@@ -3881,22 +3845,6 @@ namespace Dithering
 "1:4:26:FDFDFD:Block:Torches:WhitePaint",
 "1:328:26:FEFEFE:Block:Confetti:WhitePaint",
 "1:70:26:FFFFFF:Block:MushroomGrass:WhitePaint"};
-        private static string[] GetGrayScaleColors(string[] palette)
-        {
-            List<string> grayPalette = new List<string>();
-            (byte,byte,byte) color;
-            foreach (var parts in palette)
-            {
-                color = Pixel.ToBytes(parts.Split(':')[3]);
-                // Проверка, является ли цвет градацией серого
-                if ((color.Item1 == color.Item2 && color.Item2 == color.Item3))
-                {
-                    grayPalette.Add(parts);
-                }
-            }
-
-            return grayPalette.ToArray();
-        }
     }
 
 }

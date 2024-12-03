@@ -29,77 +29,100 @@ namespace ConsoleApp2
 {
     internal class Program
     {
-        private static readonly uint FRAMERATE = 30;
-        private static readonly uint PHOTOCOUNT = 1;
+        private const uint DEFAULT_FRAMERATE = 30;
+        private const uint DEFAULT_PHOTOCOUNT = 1;
         private static int semafors = 5;
+
         static async Task Main(string[] args)
         {
-            string FilePath, TilesPath, TotalPath = "";
-            uint photocount, framerate;
-        pathNotFound:
-            
-            //semafors = Convert.ToInt32(Console.ReadLine())
-            Console.WriteLine("Введите путь к файлу(png,jpg,mp4)");
-            //VideoPath = @"C:\Users\USER\OneDrive\Desktop\video\video.mp4";
-            FilePath = Console.ReadLine();
-            if (!File.Exists(FilePath))
-            {
-                Console.WriteLine($"Файл {FilePath.Split(new char[] { '\\' }, StringSplitOptions.RemoveEmptyEntries)[^1]} не найден. Пожалуйста, проверьте путь и попробуйте снова.");
-                return;
-            }
-            
-            Console.WriteLine("Введите вероятное количество одновременно выполняемых задач");
-            semafors = Convert.ToInt32(Console.ReadLine());
-            Console.WriteLine("Введите путь к желаемому выходному файлу");
-            //TotalPath = @"C:\Users\USER\OneDrive\Desktop\video\Exif";
-            TotalPath = Console.ReadLine();
-            if (!Directory.Exists(TotalPath))
-            {
-                Console.WriteLine("Выходная директория не найдена. Прекращаю выполнениие");
-                return;
-            }
-            if (FilePath.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
-    FilePath.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase))
-            {
-                Console.WriteLine("Необходимо обработать одно фото в этой директории?\n" +
-                    "Y - одно фото. N - все фото, найденные в директории");
-                var ch = Console.ReadLine().First();
-                if (ch == 'N')
-                {
-                    Console.WriteLine("Обрабатываю все фото");
-                    photocount = 2;
-                }
-                else if (ch == 'Y')
-                {
-                    Console.WriteLine("Обрабатываю одно фото");
-                    photocount = 1;
-                }
-                else
-                {
-                    Console.WriteLine("Ошибка, дан неверный ответ");
-                    return;
-                }
+            string filePath, totalPath;
+            uint photoCount, framerate;
 
-                photocount = photocount == 0 ? PHOTOCOUNT : photocount;
-                PhotoProcessor processor = new PhotoProcessor(FilePath, TotalPath, photocount, semafors);
+            Console.WriteLine("Введите путь к файлу (png, jpg, mp4):");
+            filePath = Console.ReadLine();
+
+            if (!ValidateFilePath(filePath))
+            {
+                return;
+            }
+
+            Console.WriteLine("Введите вероятное количество одновременно выполняемых задач:");
+            semafors = Convert.ToInt32(Console.ReadLine());
+
+            Console.WriteLine("Введите путь к желаемому выходному файлу:");
+            totalPath = Console.ReadLine();
+
+            if (!ValidateDirectoryPath(totalPath))
+            {
+                return;
+            }
+
+            if (IsImageFile(filePath))
+            {
+                photoCount = await HandleImageProcessing(filePath, totalPath);
+                PhotoProcessor processor = new PhotoProcessor(filePath, totalPath, photoCount, semafors);
                 await processor.ProcessFramesAsync();
             }
-            else if (FilePath.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase))
+            else if (IsVideoFile(filePath))
             {
-                Console.WriteLine("Сколько fps в видео? _Можно тыкнуть энтер, тогда буду обрабатывать в 30fps_");
-                framerate = Convert.ToUInt32(Console.ReadLine());
-                framerate = framerate == 0 ? FRAMERATE : framerate;
-                VideoProcessor processor = new VideoProcessor(FilePath, TotalPath, framerate, semafors);
+                framerate = await HandleVideoProcessing();
+                VideoProcessor processor = new VideoProcessor(filePath, totalPath, framerate, semafors);
                 await processor.ProcessFramesAsync();
             }
             else
             {
-                Console.WriteLine($"Файл {FilePath.Split(new char[] { '\\' }, StringSplitOptions.RemoveEmptyEntries)[^1]} не найден. Пожалуйста, проверьте путь и попробуйте снова.");
-                return;
+                Console.WriteLine($"Файл {GetFileName(filePath)} не найден. Пожалуйста, проверьте путь и попробуйте снова.");
             }
-            
+        }
 
+        private static bool ValidateFilePath(string path)
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine($"Файл {GetFileName(path)} не найден. Пожалуйста, проверьте путь и попробуйте снова.");
+                return false;
+            }
+            return true;
+        }
 
+        private static bool ValidateDirectoryPath(string path)
+        {
+            if (!Directory.Exists(path))
+            {
+                Console.WriteLine("Выходная директория не найдена. Прекращаю выполнение.");
+                return false;
+            }
+            return true;
+        }
+
+        private static bool IsImageFile(string path) =>
+            path.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+            path.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsVideoFile(string path) =>
+            path.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase);
+
+        private static string GetFileName(string path) =>
+            path.Split(new char[] { '\\' }, StringSplitOptions.RemoveEmptyEntries)[^1];
+
+        private static async Task<uint> HandleImageProcessing(string filePath, string totalPath)
+        {
+            Console.WriteLine("Необходимо обработать одно фото в этой директории?\nY - одно фото. N - все фото, найденные в директории");
+            char choice = Console.ReadLine().First();
+
+            return choice switch
+            {
+                'Y' => 1,
+                'N' => 2,
+                _ => throw new InvalidOperationException("Ошибка, дан неверный ответ")
+            };
+        }
+
+        private static async Task<uint> HandleVideoProcessing()
+        {
+            Console.WriteLine("Сколько fps в видео? _Можно тыкнуть энтер, тогда буду обрабатывать в 30fps_");
+            string input = Console.ReadLine();
+            return string.IsNullOrEmpty(input) ? DEFAULT_FRAMERATE : Convert.ToUInt32(input);
         }
     }
     public class UniqueIndexGenerator
@@ -590,10 +613,10 @@ namespace ConsoleApp2
             _totalpath = TotalPath == "" ? System.Environment.GetEnvironmentVariable("USERPROFILE") + "\\Documents" + "\\PixelArtCreatorByMixailka\\photo.txt" : TotalPath;
         }
 
-        private Color[] _colors;
+        private Color[]? _colors;
         public Color[] Colors
         {
-            get { return _colors ?? new Color[0]; }
+            get { return _colors ?? []; }
             set { _colors = value; }
         }
         
