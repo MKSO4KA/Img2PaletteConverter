@@ -1,10 +1,78 @@
-﻿using System;
+﻿using ConsoleApp2;
+using Emgu.CV.Dai;
+using System;
 using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Text;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+/*
+LATER
 
+
+internal class Program
+    {
+        static async Task Main(string[] args)
+        {
+            string PhotoPath, TilesPath, TotalPath;
+        photopathNotFound:
+            Console.WriteLine("Введите путь к фото(без .jpg и номера)");
+            PhotoPath = Console.ReadLine();
+            if (!File.Exists(PhotoPath + " (1).jpg"))
+            {
+                Console.WriteLine("Файл не найден. Пожалуйста, проверьте путь и попробуйте снова.");
+                goto photopathNotFound;
+            }
+            Console.WriteLine("Введите путь к тайлам");
+            TilesPath = Console.ReadLine();
+            if (!File.Exists(TilesPath))
+            {
+                Console.WriteLine("Файл не найден. Без пути к тайлам - использую дефолтные тайлы.");
+            }
+            Console.WriteLine("Введите путь к желаемому выходному файлу");
+            TotalPath = Console.ReadLine();
+            if (!File.Exists(TotalPath))
+            {
+                Console.WriteLine("Файл не найден. Без пути к желаемому выходному файлу сохраню в стандартй диектории(той, что создал плагин).");
+            }
+
+            using (SemaphoreSlim semaphore = new SemaphoreSlim(3)) // Ограничиваем до 3 потоков
+            {
+                List<Task> tasks = new List<Task>();
+
+                for (int i = -2; i < 300; i += 1) // Предполагаем, что у вас 300 фото
+                {
+                    await semaphore.WaitAsync(); // Ждем, пока не освободится место
+
+                    // Запускаем задачу
+                    tasks.Add(Task.Run(async () =>
+                    {
+                        try
+                        {
+                            PhotoTileConverter converter = new PhotoTileConverter(PhotoPath + $" ({i}).jpg", TilesPath, TotalPath + $"\\photo{i}.txt");
+                            await converter.Convert(i); // Выполняем конвертацию асинхронно
+                        }
+                        catch (Exception ex) // Обработка исключений
+                        {
+                            Console.WriteLine($"Произошла ошибка при конвертации: {ex.Message}");
+                        }
+                        finally
+                        {
+                            semaphore.Release(); // Освобождаем семафор
+                        }
+                    }));
+                }
+
+                // Ожидаем завершения всех задач
+                await Task.WhenAll(tasks);
+            }
+        }
+    }
+
+
+*/
 namespace ConsoleApp2
 {
     partial class Pixel
@@ -76,7 +144,8 @@ namespace Dithering
     // Перенёс Сюда, ибо это каец, как много строк.
     partial class ColorApproximater
     {
-        private static string[] _tilesDefault =
+        // ПОМЕНЯТЬ МЕСТАМИ ОБЯЗАТЕЛЬНО!!!
+        private static string[] _grayDefault =
             {
 
             "1:4:29:000000:Block:Torches:ShadowPaint",
@@ -3572,6 +3641,262 @@ namespace Dithering
 
 
             };
+        private static string[] _tilesDefault = { "1:4:29:000000:Block:Torches:ShadowPaint",
+"1:39:29:010101:Block:RedBrick:ShadowPaint",
+"1:2:29:020202:Block:Grass:ShadowPaint",
+"1:1:29:030303:Block:Stone:ShadowPaint",
+"1:23:29:040404:Block:CorruptGrass:ShadowPaint",
+"1:9:29:050505:Block:Silver:ShadowPaint",
+"1:118:29:060606:Block:PearlstoneBrick:ShadowPaint",
+"1:75:25:070707:Block:ObsidianBrick:BlackPaint",
+"1:351:25:090909:Block:ChimneySmoke:BlackPaint",
+"1:329:27:0A0A0A:Block:ConfettiBlack:GrayPaint",
+"0:8:25:0B0B0B:Wall:GreenDungeonUnsafe:BlackPaint",
+"0:7:25:0C0C0C:Wall:BlueDungeonUnsafe:BlackPaint",
+"0:94:25:0D0D0D:Wall:BlueDungeonSlabUnsafe:BlackPaint",
+"0:55:25:0E0E0E:Wall:Cave2Unsafe:BlackPaint",
+"1:131:25:0F0F0F:Block:InactiveStoneBlock:BlackPaint",
+"0:38:25:101010:Wall:GreenStucco:BlackPaint",
+"1:75:27:111111:Block:ObsidianBrick:GrayPaint",
+"1:198:25:121212:Block:Asphalt:BlackPaint",
+"0:13:25:131313:Wall:HellstoneBrickUnsafe:BlackPaint",
+"1:401:25:141414:Block:CrimsonSandstone:BlackPaint",
+"1:351:27:151515:Block:ChimneySmoke:GrayPaint",
+"1:57:25:161616:Block:Ash:BlackPaint",
+"1:671:25:171717:Block:AstraBrick:BlackPaint",
+"1:669:25:181818:Block:LunarRustBrick:BlackPaint",
+"1:408:25:191919:Block:LunarOre:BlackPaint",
+"1:75:0:1A1A1A:Block:ObsidianBrick:NonePaint",
+"1:59:25:1B1B1B:Block:Mud:BlackPaint",
+"1:253:25:1C1C1C:Block:SpookyWood:BlackPaint",
+"1:43:25:1D1D1D:Block:GreenDungeonBrick:BlackPaint",
+"1:37:25:1E1E1E:Block:Meteorite:BlackPaint",
+"1:44:25:1F1F1F:Block:PinkDungeonBrick:BlackPaint",
+"1:41:25:202020:Block:BlueDungeonBrick:BlackPaint",
+"1:167:25:212121:Block:Lead:BlackPaint",
+"1:208:25:222222:Block:Shadewood:BlackPaint",
+"1:131:27:232323:Block:InactiveStoneBlock:GrayPaint",
+"1:204:25:242424:Block:Crimtane:BlackPaint",
+"1:1:25:252525:Block:Stone:BlackPaint",
+"1:230:25:262626:Block:CrispyHoneyBlock:BlackPaint",
+"1:195:25:272727:Block:FleshBlock:BlackPaint",
+"1:213:25:282828:Block:Rope:BlackPaint",
+"1:6:25:292929:Block:Iron:BlackPaint",
+"1:40:25:2A2A2A:Block:ClayBlock:BlackPaint",
+"1:159:25:2B2B2B:Block:Pearlwood:BlackPaint",
+"1:7:25:2C2C2C:Block:Copper:BlackPaint",
+"1:252:25:2D2D2D:Block:HayBlock:BlackPaint",
+"1:168:25:2E2E2E:Block:Tungsten:BlackPaint",
+"1:66:25:2F2F2F:Block:Topaz:BlackPaint",
+"1:67:25:303030:Block:Amethyst:BlackPaint",
+"1:22:25:313131:Block:Demonite:BlackPaint",
+"1:156:25:323232:Block:GrayStucco:BlackPaint",
+"0:12:27:333333:Wall:CopperBrick:GrayPaint",
+"1:57:27:343434:Block:Ash:GrayPaint",
+"1:39:25:353535:Block:RedBrick:BlackPaint",
+"1:8:25:363636:Block:Gold:BlackPaint",
+"1:117:25:373737:Block:Pearlstone:BlackPaint",
+"1:19:25:383838:Block:Platforms:BlackPaint",
+"1:9:25:393939:Block:Silver:BlackPaint",
+"1:169:25:3A3A3A:Block:Platinum:BlackPaint",
+"1:206:25:3B3B3B:Block:IceBrick:BlackPaint",
+"1:312:25:3C3C3C:Block:RedDynastyShingles:BlackPaint",
+"1:199:25:3D3D3D:Block:CrimsonGrass:BlackPaint",
+"1:136:25:3E3E3E:Block:Switches:BlackPaint",
+"1:2:25:3F3F3F:Block:Grass:BlackPaint",
+"1:164:25:404040:Block:HallowedIce:BlackPaint",
+"1:23:25:414141:Block:CorruptGrass:BlackPaint",
+"1:109:25:424242:Block:HallowedGrass:BlackPaint",
+"1:222:25:434343:Block:Orichalcum:BlackPaint",
+"1:43:27:444444:Block:GreenDungeonBrick:GrayPaint",
+"1:223:27:454545:Block:Titanium:GrayPaint",
+"1:118:25:464646:Block:PearlstoneBrick:BlackPaint",
+"1:37:27:474747:Block:Meteorite:GrayPaint",
+"1:267:25:484848:Block:DiamondGemspark:BlackPaint",
+"1:44:27:494949:Block:PinkDungeonBrick:GrayPaint",
+"1:4:25:4A4A4A:Block:Torches:BlackPaint",
+"1:70:25:4B4B4B:Block:MushroomGrass:BlackPaint",
+"1:57:26:4C4C4C:Block:Ash:WhitePaint",
+"1:399:26:4D4D4D:Block:CrimsonHardenedSand:WhitePaint",
+"1:167:27:4E4E4E:Block:Lead:GrayPaint",
+"1:474:27:4F4F4F:Block:LesionBlock:GrayPaint",
+"1:208:27:505050:Block:Shadewood:GrayPaint",
+"1:671:26:515151:Block:AstraBrick:WhitePaint",
+"1:188:27:525252:Block:CactusBlock:GrayPaint",
+"1:272:27:535353:Block:Cog:GrayPaint",
+"1:473:27:545454:Block:LeadBrick:GrayPaint",
+"1:204:27:555555:Block:Crimtane:GrayPaint",
+"1:157:27:565656:Block:Ebonwood:GrayPaint",
+"1:1:27:575757:Block:Stone:GrayPaint",
+"1:166:27:585858:Block:Tin:GrayPaint",
+"1:230:27:595959:Block:CrispyHoneyBlock:GrayPaint",
+"1:421:26:5A5A5A:Block:ConveyorBeltLeft:WhitePaint",
+"1:195:27:5B5B5B:Block:FleshBlock:GrayPaint",
+"1:59:26:5C5C5C:Block:Mud:WhitePaint",
+"0:84:26:5D5D5D:Wall:IceBrick:WhitePaint",
+"1:213:27:5E5E5E:Block:Rope:GrayPaint",
+"0:119:26:5F5F5F:Wall:FestiveWallpaper:WhitePaint",
+"1:6:27:606060:Block:Iron:GrayPaint",
+"1:58:27:616161:Block:Hellstone:GrayPaint",
+"1:107:27:626262:Block:Cobalt:GrayPaint",
+"1:158:27:636363:Block:RichMahogany:GrayPaint",
+"1:40:27:646464:Block:ClayBlock:GrayPaint",
+"1:159:27:656565:Block:Pearlwood:GrayPaint",
+"1:7:27:666666:Block:Copper:GrayPaint",
+"1:30:27:676767:Block:WoodBlock:GrayPaint",
+"1:37:26:686868:Block:Meteorite:WhitePaint",
+"1:252:27:696969:Block:HayBlock:GrayPaint",
+"1:350:27:6A6A6A:Block:MartianConduitPlating:GrayPaint",
+"1:44:26:6B6B6B:Block:PinkDungeonBrick:WhitePaint",
+"1:119:26:6C6C6C:Block:IridescentBrick:WhitePaint",
+"1:41:26:6D6D6D:Block:BlueDungeonBrick:WhitePaint",
+"0:231:26:6E6E6E:Wall:IronBrick:WhitePaint",
+"1:155:27:6F6F6F:Block:GreenStucco:GrayPaint",
+"0:143:26:707070:Wall:BlueDynasty:WhitePaint",
+"1:67:27:717171:Block:Amethyst:GrayPaint",
+"1:22:27:727272:Block:Demonite:GrayPaint",
+"1:108:27:737373:Block:Mythril:GrayPaint",
+"1:416:27:747474:Block:LunarBlockVortex:GrayPaint",
+"1:156:27:757575:Block:GrayStucco:GrayPaint",
+"1:208:26:767676:Block:Shadewood:WhitePaint",
+"0:140:26:777777:Wall:PearlwoodFence:WhitePaint",
+"1:188:26:787878:Block:CactusBlock:WhitePaint",
+"1:272:26:797979:Block:Cog:WhitePaint",
+"1:196:27:7A7A7A:Block:RainCloud:GrayPaint",
+"1:473:26:7B7B7B:Block:LeadBrick:WhitePaint",
+"1:39:27:7C7C7C:Block:RedBrick:GrayPaint",
+"1:204:26:7D7D7D:Block:Crimtane:WhitePaint",
+"1:8:27:7E7E7E:Block:Gold:GrayPaint",
+"1:1:30:7F7F7F:Block:Stone:NegativePaint",
+"1:1:0:808080:Block:Stone:NonePaint",
+"1:166:26:818181:Block:Tin:WhitePaint",
+"1:117:27:828282:Block:Pearlstone:GrayPaint",
+"1:19:27:838383:Block:Platforms:GrayPaint",
+"0:125:26:848484:Wall:GrinchFingerWallpaper:WhitePaint",
+"1:9:27:858585:Block:Silver:GrayPaint",
+"1:64:27:868686:Block:Ruby:GrayPaint",
+"1:68:27:878787:Block:Diamond:GrayPaint",
+"0:123:26:888888:Wall:KrampusHornWallpaper:WhitePaint",
+"1:206:27:898989:Block:IceBrick:GrayPaint",
+"1:341:27:8A8A8A:Block:LivingDemonFire:GrayPaint",
+"0:175:27:8B8B8B:Wall:ShroomitePlating:GrayPaint",
+"1:6:26:8C8C8C:Block:Iron:WhitePaint",
+"1:226:26:8D8D8D:Block:LihzahrdBrick:WhitePaint",
+"1:58:26:8E8E8E:Block:Hellstone:WhitePaint",
+"1:107:26:8F8F8F:Block:Cobalt:WhitePaint",
+"1:385:26:909090:Block:CrystalBlock:WhitePaint",
+"1:158:26:919191:Block:RichMahogany:WhitePaint",
+"1:40:26:929292:Block:ClayBlock:WhitePaint",
+"1:60:27:939393:Block:JungleGrass:GrayPaint",
+"1:2:27:949494:Block:Grass:GrayPaint",
+"1:164:27:959595:Block:HallowedIce:GrayPaint",
+"1:7:26:969696:Block:Copper:WhitePaint",
+"1:30:26:979797:Block:WoodBlock:WhitePaint",
+"1:214:30:989898:Block:Chain:NegativePaint",
+"1:23:27:999999:Block:CorruptGrass:GrayPaint",
+"1:197:27:9A9A9A:Block:FrozenSlimeBlock:GrayPaint",
+"1:109:27:9B9B9B:Block:HallowedGrass:GrayPaint",
+"1:168:26:9D9D9D:Block:Tungsten:WhitePaint",
+"1:222:27:9E9E9E:Block:Orichalcum:GrayPaint",
+"1:161:27:9F9F9F:Block:IceBlock:GrayPaint",
+"1:66:26:A0A0A0:Block:Topaz:WhitePaint",
+"1:249:27:A1A1A1:Block:BubblegumBlock:GrayPaint",
+"1:155:26:A2A2A2:Block:GreenStucco:WhitePaint",
+"1:118:27:A3A3A3:Block:PearlstoneBrick:GrayPaint",
+"1:153:27:A4A4A4:Block:RedStucco:GrayPaint",
+"1:147:27:A5A5A5:Block:SnowBlock:GrayPaint",
+"1:67:26:A6A6A6:Block:Amethyst:WhitePaint",
+"1:22:26:A7A7A7:Block:Demonite:WhitePaint",
+"1:423:27:A8A8A8:Block:LogicSensor:GrayPaint",
+"1:108:26:A9A9A9:Block:Mythril:WhitePaint",
+"1:340:27:AAAAAA:Block:LivingCursedFire:GrayPaint",
+"1:156:26:ABABAB:Block:GrayStucco:WhitePaint",
+"1:344:27:ACACAC:Block:LivingUltrabrightFire:GrayPaint",
+"1:4:27:ADADAD:Block:Torches:GrayPaint",
+"1:328:27:AEAEAE:Block:Confetti:GrayPaint",
+"1:70:27:AFAFAF:Block:MushroomGrass:GrayPaint",
+"1:196:26:B2B2B2:Block:RainCloud:WhitePaint",
+"0:130:26:B4B4B4:Wall:RainbowWallpaper:WhitePaint",
+"1:39:26:B5B5B5:Block:RedBrick:WhitePaint",
+"1:63:26:B6B6B6:Block:Sapphire:WhitePaint",
+"1:427:26:B7B7B7:Block:TeamBlockRedPlatform:WhitePaint",
+"1:152:26:B8B8B8:Block:EbonstoneBrick:WhitePaint",
+"1:8:26:B9B9B9:Block:Gold:WhitePaint",
+"1:402:26:BABABA:Block:HallowHardenedSand:WhitePaint",
+"1:424:26:BBBBBB:Block:WirePipe:WhitePaint",
+"1:117:26:BEBEBE:Block:Pearlstone:WhitePaint",
+"1:19:26:BFBFBF:Block:Platforms:WhitePaint",
+"1:145:26:C0C0C0:Block:CandyCaneBlock:WhitePaint",
+"1:370:26:C2C2C2:Block:MeteoriteBrick:WhitePaint",
+"1:9:26:C3C3C3:Block:Silver:WhitePaint",
+"1:64:26:C4C4C4:Block:Ruby:WhitePaint",
+"1:68:26:C5C5C5:Block:Diamond:WhitePaint",
+"1:169:26:C6C6C6:Block:Platinum:WhitePaint",
+"0:237:26:C8C8C8:Wall:SolarBrick:WhitePaint",
+"1:206:26:C9C9C9:Block:IceBrick:WhitePaint",
+"1:341:26:CACACA:Block:LivingDemonFire:WhitePaint",
+"1:131:30:CBCBCB:Block:InactiveStoneBlock:NegativePaint",
+"1:312:26:CCCCCC:Block:RedDynastyShingles:WhitePaint",
+"1:365:26:CDCDCD:Block:SilkRope:WhitePaint",
+"1:384:26:CECECE:Block:LivingMahoganyLeaves:WhitePaint",
+"1:199:26:D0D0D0:Block:CrimsonGrass:WhitePaint",
+"1:633:26:D2D2D2:Block:AshGrass:WhitePaint",
+"1:458:26:D3D3D3:Block:SandFallBlock:WhitePaint",
+"1:346:26:D4D4D4:Block:ChlorophyteBrick:WhitePaint",
+"1:136:26:D5D5D5:Block:Switches:WhitePaint",
+"1:163:26:D6D6D6:Block:CorruptIce:WhitePaint",
+"1:60:26:D7D7D7:Block:JungleGrass:WhitePaint",
+"1:2:26:D8D8D8:Block:Grass:WhitePaint",
+"1:164:26:DADADA:Block:HallowedIce:WhitePaint",
+"1:248:26:DBDBDB:Block:PalladiumColumn:WhitePaint",
+"1:429:0:DCDCDC:Block:WireBulb:NonePaint",
+"1:383:26:DDDDDD:Block:LivingMahogany:WhitePaint",
+"0:142:26:DEDEDE:Wall:WhiteDynasty:WhitePaint",
+"1:23:26:DFDFDF:Block:CorruptGrass:WhitePaint",
+"1:351:30:E0E0E0:Block:ChimneySmoke:NegativePaint",
+"1:197:26:E1E1E1:Block:FrozenSlimeBlock:WhitePaint",
+"0:127:26:E2E2E2:Wall:IceFloeWallpaper:WhitePaint",
+"1:109:26:E3E3E3:Block:HallowedGrass:WhitePaint",
+"1:75:30:E5E5E5:Block:ObsidianBrick:NegativePaint",
+"0:315:26:E6E6E6:Wall:BambooFence:WhitePaint",
+"1:222:26:E7E7E7:Block:Orichalcum:WhitePaint",
+"1:161:26:E8E8E8:Block:IceBlock:WhitePaint",
+"1:211:26:E9E9E9:Block:Chlorophyte:WhitePaint",
+"1:417:26:EAEAEA:Block:LunarBlockNebula:WhitePaint",
+"1:249:26:EBEBEB:Block:BubblegumBlock:WhitePaint",
+"1:347:26:ECECEC:Block:CrimtaneBrick:WhitePaint",
+"1:625:26:EDEDED:Block:VioletMoss:WhitePaint",
+"1:118:26:EEEEEE:Block:PearlstoneBrick:WhitePaint",
+"1:153:26:EFEFEF:Block:RedStucco:WhitePaint",
+"1:162:26:F0F0F0:Block:BreakableIce:WhitePaint",
+"1:147:26:F1F1F1:Block:SnowBlock:WhitePaint",
+"1:432:26:F2F2F2:Block:TeamBlockYellow:WhitePaint",
+"1:423:26:F5F5F5:Block:LogicSensor:WhitePaint",
+"1:267:26:F7F7F7:Block:DiamondGemspark:WhitePaint",
+"1:340:26:F8F8F8:Block:LivingCursedFire:WhitePaint",
+"1:371:26:F9F9F9:Block:PinkSlimeBlock:WhitePaint",
+"1:507:30:FAFAFA:Block:GoldStarryGlassBlock:NegativePaint",
+"1:379:26:FBFBFB:Block:Bubble:WhitePaint",
+"1:344:26:FCFCFC:Block:LivingUltrabrightFire:WhitePaint",
+"1:4:26:FDFDFD:Block:Torches:WhitePaint",
+"1:328:26:FEFEFE:Block:Confetti:WhitePaint",
+"1:70:26:FFFFFF:Block:MushroomGrass:WhitePaint"};
+        private static string[] GetGrayScaleColors(string[] palette)
+        {
+            List<string> grayPalette = new List<string>();
+            (byte,byte,byte) color;
+            foreach (var parts in palette)
+            {
+                color = Pixel.ToBytes(parts.Split(':')[3]);
+                // Проверка, является ли цвет градацией серого
+                if ((color.Item1 == color.Item2 && color.Item2 == color.Item3))
+                {
+                    grayPalette.Add(parts);
+                }
+            }
+
+            return grayPalette.ToArray();
+        }
     }
 
 }

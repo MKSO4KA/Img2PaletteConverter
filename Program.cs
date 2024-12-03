@@ -4,7 +4,11 @@ using System.Drawing;
 using System.Text;
 using System.Xml.Linq;
 using Dithering;
-
+using System.Security.AccessControl;
+using Emgu.CV.CvEnum;
+using Emgu.CV.Structure;
+using Emgu.CV;
+using System.Collections.Concurrent;
 
 
 // This code is based on the "CSharp-Dithering" project by mcraiha Kaarlo Räihä.
@@ -12,6 +16,7 @@ using Dithering;
 // License: Unlicense
 //
 // The rest of this project is licensed under: GNU General Public License v3.0
+
 // Этот код основан на проекте "CSharp-Dithering" авторства mcraiha Kaarlo Räihä.
 // Исходный код доступен по ссылке: https://github.com/mcraiha/CSharp-Dithering
 // Лицензия: Unlicense
@@ -24,34 +29,313 @@ namespace ConsoleApp2
 {
     internal class Program
     {
-        static void Main(string[] args)
+        private static readonly uint FRAMERATE = 30;
+        private static readonly uint PHOTOCOUNT = 1;
+        private static int semafors = 5;
+        static async Task Main(string[] args)
         {
-            string PhotoPath, TilesPath, TotalPath;
-            photopathNotFound:
-            Console.WriteLine("Введите путь к фото");
-            PhotoPath = Console.ReadLine();
-            if (!File.Exists(PhotoPath))
-            {
-                Console.WriteLine("Файл не найден. Пожалуйста, проверьте путь и попробуйте снова.");
-                goto photopathNotFound;
-            }
-            Console.WriteLine("Введите путь к тайлам");
-            TilesPath = Console.ReadLine();
-            if (!File.Exists(TilesPath))
-            {
-                Console.WriteLine("Файл не найден. Без пути к тайлам - использую дефолтные тайлы.");
-                
-            }
-            Console.WriteLine("Введите путь к желаемому выходному файлу");
-            TotalPath = Console.ReadLine();
-            if (!File.Exists(TotalPath))
-            {
-                Console.WriteLine("Файл не найден. Без пути к желаемому выходному файлу сохраню в стандартй диектории(той, что создал плагин)");
-
-            }
-            PhotoTileConverter converter = new PhotoTileConverter(PhotoPath, TilesPath, TotalPath);
+            string FilePath, TilesPath, TotalPath = "";
+            uint photocount, framerate;
+        pathNotFound:
             
-            converter.Convert();
+            //semafors = Convert.ToInt32(Console.ReadLine())
+            Console.WriteLine("Введите путь к файлу(png,jpg,mp4)");
+            //VideoPath = @"C:\Users\USER\OneDrive\Desktop\video\video.mp4";
+            FilePath = Console.ReadLine();
+            if (!File.Exists(FilePath))
+            {
+                Console.WriteLine($"Файл {FilePath.Split(new char[] { '\\' }, StringSplitOptions.RemoveEmptyEntries)[^1]} не найден. Пожалуйста, проверьте путь и попробуйте снова.");
+                return;
+            }
+            
+            Console.WriteLine("Введите вероятное количество одновременно выполняемых задач");
+            semafors = Convert.ToInt32(Console.ReadLine());
+            Console.WriteLine("Введите путь к желаемому выходному файлу");
+            //TotalPath = @"C:\Users\USER\OneDrive\Desktop\video\Exif";
+            TotalPath = Console.ReadLine();
+            if (!Directory.Exists(TotalPath))
+            {
+                Console.WriteLine("Выходная директория не найдена. Прекращаю выполнениие");
+                return;
+            }
+            if (FilePath.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+    FilePath.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase))
+            {
+                Console.WriteLine("Необходимо обработать одно фото в этой директории?\n" +
+                    "Y - одно фото. N - все фото, найденные в директории");
+                var ch = Console.ReadLine().First();
+                if (ch == 'N')
+                {
+                    Console.WriteLine("Обрабатываю все фото");
+                    photocount = 2;
+                }
+                else if (ch == 'Y')
+                {
+                    Console.WriteLine("Обрабатываю одно фото");
+                    photocount = 1;
+                }
+                else
+                {
+                    Console.WriteLine("Ошибка, дан неверный ответ");
+                    return;
+                }
+
+                photocount = photocount == 0 ? PHOTOCOUNT : photocount;
+                PhotoProcessor processor = new PhotoProcessor(FilePath, TotalPath, photocount, semafors);
+                await processor.ProcessFramesAsync();
+            }
+            else if (FilePath.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase))
+            {
+                Console.WriteLine("Сколько fps в видео? _Можно тыкнуть энтер, тогда буду обрабатывать в 30fps_");
+                framerate = Convert.ToUInt32(Console.ReadLine());
+                framerate = framerate == 0 ? FRAMERATE : framerate;
+                VideoProcessor processor = new VideoProcessor(FilePath, TotalPath, framerate, semafors);
+                await processor.ProcessFramesAsync();
+            }
+            else
+            {
+                Console.WriteLine($"Файл {FilePath.Split(new char[] { '\\' }, StringSplitOptions.RemoveEmptyEntries)[^1]} не найден. Пожалуйста, проверьте путь и попробуйте снова.");
+                return;
+            }
+            
+
+
+        }
+    }
+    public class UniqueIndexGenerator
+    {
+        private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
+        private int _currentIndex = 1;
+
+        public async Task<int> GetNextIndexAsync()
+        {
+            await _semaphore.WaitAsync();
+            try
+            {
+                return _currentIndex++;
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
+        }
+    }
+    public class VideoProcessor
+    {
+        private readonly string VideoPath;
+        private readonly string TotalPath;
+        private readonly uint FRAMERATE;
+        private readonly int semafors;
+
+        public VideoProcessor(string videoPath, string totalPath, uint frameRate = 30, int semafors = 1)
+        {
+            VideoPath = videoPath;
+            TotalPath = totalPath;
+            FRAMERATE = frameRate;
+            this.semafors = semafors;
+        }
+        public async Task ProcessFramesAsync()
+        {
+            SemaphoreSlim semaphore = new SemaphoreSlim(semafors); // Ограничиваем до semafors потоков
+            List<Task> tasks = new List<Task>();
+            var indexGenerator = new UniqueIndexGenerator(); // Создаем экземпляр генератора уникальных индексов
+            ConcurrentDictionary<int, bool> inds = new ConcurrentDictionary<int, bool>(); // Используем ConcurrentDictionary для отслеживания индексов
+
+            // Используем ConcurrentQueue для хранения кадров и их индексов
+            ConcurrentQueue<(int index, Bitmap frame)> frameQueue = new ConcurrentQueue<(int, Bitmap)>();
+
+            foreach (var frame in VideoFrameExtractor.ExtractFrames(VideoPath, FRAMERATE))
+            {
+                int index = await indexGenerator.GetNextIndexAsync(); // Получаем уникальный индекс
+                frameQueue.Enqueue((index, frame)); // Добавляем в очередь
+            }
+
+            // Запускаем задачи
+            while (frameQueue.TryDequeue(out var item))
+            {
+                await semaphore.WaitAsync(); // Ждем, пока не освободится место
+                
+                // Запускаем задачу
+                tasks.Add(Task.Run(async () =>
+                {
+                    
+                    try
+                    {
+                        int index = item.index;
+                        Bitmap frame = item.frame; // Извлекаем кадр из кортежа
+                        string filePath = TotalPath + $"\\photo{index}.txt";
+
+                        // Проверяем, существует ли файл или индекс уже добавлен
+                        if (File.Exists(filePath) || inds.ContainsKey(index))
+                        {
+                            // Если файл существует или индекс уже добавлен, просто освобождаем кадр и семафор, и переходим к следующему
+                            throw new Exception("File Exists"); // Переходим к следующему кадру
+                        }
+
+                        if (inds.TryAdd(index, true) ==  false)
+                        {
+                            throw new Exception("inds error");
+                        }
+
+                        PhotoTileConverter converter = new PhotoTileConverter(VideoPath, "", filePath);
+                         // Добавляем текущий индекс
+                        await converter.Convert(index, frame); // Выполняем конвертацию асинхронно
+                    }
+                    catch (Exception ex) // Обработка исключений
+                    {
+                        Console.WriteLine($"Произошла ошибка при конвертации: {ex.Message}");
+                    }
+                    finally
+                    {
+                        // Удаляем индекс из inds в любом случае
+                        inds.TryRemove(item.index, out _); // Удаляем индекс
+                        item.frame.Dispose(); // Освобождаем кадр
+                        semaphore.Release(); // Освобождаем семафор
+                    }
+                }));
+            }
+
+            // Ожидаем завершения всех задач
+            await Task.WhenAll(tasks);
+        }
+
+    }
+    public class VideoFrameExtractor
+    {
+        public static IEnumerable<Bitmap> ExtractFrames(string videoPath, uint frameRate)
+        {
+            using (var capture = new VideoCapture(videoPath))
+            {
+                double fps = capture.Get(CapProp.Fps);
+                int frameInterval = (int)(fps / frameRate);
+
+                Mat frame = new Mat();
+                int frameCount = 0;
+
+                while (true)
+                {
+                    capture.Read(frame);
+                    if (frame.IsEmpty)
+                        break;
+
+                    if (frameCount % frameInterval == 0)
+                    {
+                        Bitmap bitmap = frame.ToBitmap();
+                        yield return bitmap; // Возвращаем кадр по одному
+                    }
+
+                    frameCount++;
+                }
+            }
+        }
+    }
+    public class PhotoProcessor
+    {
+        private readonly string PhotoPath;
+        private readonly string TotalPath;
+        private readonly uint PhotoCount;
+        private readonly int semafors;
+
+        public PhotoProcessor(string videoPath, string totalPath, uint photoCount = 1, int semafors = 1)
+        {
+            PhotoPath = videoPath;
+            TotalPath = totalPath;
+            PhotoCount = photoCount;
+            this.semafors = semafors > photoCount ? Convert.ToInt32(photoCount) : semafors;
+        }
+        public async Task ProcessFramesAsync()
+        {
+            SemaphoreSlim semaphore = new SemaphoreSlim(semafors); // Ограничиваем до semafors потоков
+            List<Task> tasks = new List<Task>();
+            var indexGenerator = new UniqueIndexGenerator(); // Создаем экземпляр генератора уникальных индексов
+            ConcurrentDictionary<int, bool> inds = new ConcurrentDictionary<int, bool>(); // Используем ConcurrentDictionary для отслеживания индексов
+            IEnumerable<string> imageFiles;
+            // Используем ConcurrentQueue для хранения кадров и их индексов
+            ConcurrentQueue<(int index, Bitmap frame)> frameQueue = new ConcurrentQueue<(int, Bitmap)>();
+            string filePath = PhotoPath;
+            if (PhotoCount > 1)
+            {
+                imageFiles = Directory.GetFiles(Path.GetDirectoryName(PhotoPath), "*.*", SearchOption.TopDirectoryOnly)
+                                      .Where(f => f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                                                  f.EndsWith(".png", StringComparison.OrdinalIgnoreCase));
+            }
+            else
+            {
+                imageFiles = [PhotoPath];
+            }
+
+            // Перебираем файлы и выводим их названия
+            foreach (var frame in PhotoReturner.GetPhotos(imageFiles))
+            {
+                int index = await indexGenerator.GetNextIndexAsync(); // Получаем уникальный индекс
+                frameQueue.Enqueue((index, frame)); // Добавляем в очередь
+            }
+
+
+            // Запускаем задачи
+            while (frameQueue.TryDequeue(out var item))
+            {
+                await semaphore.WaitAsync(); // Ждем, пока не освободится место
+
+                // Запускаем задачу
+                tasks.Add(Task.Run(async () =>
+                {
+
+                    try
+                    {
+                        int index = item.index;
+                        Bitmap frame = item.frame; // Извлекаем кадр из кортежа
+                        string filePath = TotalPath + $"\\photo{index}.txt";
+
+                        // Проверяем, существует ли файл или индекс уже добавлен
+                        if (File.Exists(filePath) || inds.ContainsKey(index))
+                        {
+                            // Если файл существует или индекс уже добавлен, просто освобождаем кадр и семафор, и переходим к следующему
+                            throw new Exception("File Exists"); // Переходим к следующему кадру
+                        }
+
+                        if (inds.TryAdd(index, true) == false)
+                        {
+                            throw new Exception("inds error");
+                        }
+
+                        PhotoTileConverter converter = new PhotoTileConverter(PhotoPath, "", filePath);
+                        // Добавляем текущий индекс
+                        await converter.Convert(index, frame); // Выполняем конвертацию асинхронно
+                    }
+                    catch (Exception ex) // Обработка исключений
+                    {
+                        Console.WriteLine($"Произошла ошибка при конвертации: {ex.Message}");
+                    }
+                    finally
+                    {
+                        // Удаляем индекс из inds в любом случае
+                        inds.TryRemove(item.index, out _); // Удаляем индекс
+                        item.frame.Dispose(); // Освобождаем кадр
+                        semaphore.Release(); // Освобождаем семафор
+                    }
+                }));
+            }
+
+            // Ожидаем завершения всех задач
+            await Task.WhenAll(tasks);
+        }
+
+    }
+    public class PhotoReturner
+    {
+        public static IEnumerable<Bitmap> GetPhotos(IEnumerable<string> imageFiles)
+        {
+            // Получаем все файлы с расширениями .jpg и .png
+            
+            foreach (var file in imageFiles)
+            {
+                // Загружаем изображение и возвращаем его
+                using (var bitmap = Bitmap.FromFile(file))
+                {
+                    yield return new Bitmap(bitmap); // Возвращаем копию изображения
+                }
+            }
         }
     }
     public class BinaryWorker
@@ -76,8 +360,19 @@ namespace ConsoleApp2
         // Список для хранения значений из файла
         public List<(bool, bool, ushort, byte)> FileValues = new List<(bool, bool, ushort, byte)>();
 
-        // Метод для чтения данных из файла
-        internal List<(bool, bool, ushort, byte)> Read()
+        /// <summary>
+        /// Читает данные из файла и возвращает список кортежей, содержащих информацию о блоках.
+        /// </summary>
+        /// <returns>
+        /// Список кортежей, где каждый кортеж содержит:
+        ///   <list type="bullet">
+        ///     <item><description>bool isWall - указывает, является ли блок стеной</description></item>
+        ///     <item><description>bool isTorch - указывает, является ли блок факелом</description></item>
+        ///     <item><description>ushort id - идентификатор блока</description></item>
+        ///     <item><description>byte paintId - идентификатор краски блока</description></item>
+        ///   </list>
+        /// </returns>
+        internal List<(bool isWall, bool isTorch, ushort id, byte paintId)> Read()
         {
             List<(bool, bool, ushort, byte)> Array = new List<(bool, bool, ushort, byte)>(); // Создаем новый список для хранения прочитанных данных
             byte[] bytes = File.ReadAllBytes(Path); // Читаем все байты из файла
@@ -146,7 +441,7 @@ namespace ConsoleApp2
     public class Pixels
     {
         // Статический список для хранения объектов Pixel
-        public static List<Pixel> Objects = new List<Pixel>();
+        public List<Pixel> Objects = new List<Pixel>();
 
         // Конструктор класса, принимает массив строк, представляющих пути
         public Pixels(string[] Path)
@@ -255,7 +550,7 @@ namespace ConsoleApp2
         }
 
         // Метод для конвертации шестнадцатеричного значения в байты
-        private static (byte, byte, byte) ToBytes(string hexValue)
+        public static (byte, byte, byte) ToBytes(string hexValue)
         {
             int hexColor = Convert.ToInt32(hexValue.Replace("#", ""), 16); // Преобразуем шестнадцатеричное значение в целое число
             return ((byte)((hexColor >> 16) & 0xff), // Извлекаем красный компонент
@@ -337,12 +632,24 @@ namespace ConsoleApp2
         /// <summary>
         /// Конвертирует изображение в текстовый файл, представляющий его цвета.
         /// </summary>
-        public void Convert()
+        public async Task Convert(int i, Bitmap bitmap = null)
         {
             ColorApproximater approximater = new ColorApproximater(_tilespath);
-            Image bitmap = Image.FromFile(_path);
-
-            AtkinsonDithering.Do((Bitmap)bitmap, approximater, new BinaryWorker(_totalpath));
+            bitmap ??= (Bitmap)Image.FromFile(_path);
+            Console.WriteLine($"{i}");
+            Console.WriteLine($"Task {i} started on thread {Thread.CurrentThread.ManagedThreadId}");
+            await Task.Run(() =>
+            {
+                try
+                {
+                    var Dither = new AtkinsonDithering();
+                    Dither.Do((Bitmap)bitmap, approximater, new BinaryWorker(_totalpath));
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"\n\nОШИБКА В КОНВЕРТАЦИИ!!! {ex}\n\n");
+                }
+            });
         }
     }
 }
@@ -378,7 +685,7 @@ namespace Dithering
         /// </summary>
         /// <param name="inputColors">Input colors</param>
         /// <param name="outputColors">Output colors</param>
-        public delegate void ColorFunction(in T[] inputColors, ref T[] outputColors, ColorApproximater colorApproximater = null);
+        public delegate void ColorFunction(in T[] inputColors, ref T[] outputColors, ColorApproximater colorApproximater);
 
         /// <summary>
         /// Base constructor
@@ -408,7 +715,7 @@ namespace Dithering
         /// </summary>
         /// <param name="input">Input image</param>
         /// <returns>Dithered image</returns>
-        public IImageFormat<T> DoDithering(IImageFormat<T> input)
+        public IImageFormat<T> DoDithering(IImageFormat<T> input, ColorApproximater approximater)
         {
             width = input.GetWidth();
             height = input.GetHeight();
@@ -425,20 +732,21 @@ namespace Dithering
                 for (int x = 0; x < width; x++)
                 {
                     input.GetPixelChannels(x, y, ref originalPixel);
-                    colorFunction(in originalPixel, ref newPixel);
+                    colorFunction(in originalPixel, ref newPixel, approximater);
 
                     input.SetPixelChannels(x, y, newPixel);
                     input.GetQuantErrorsPerChannel(in originalPixel, in newPixel, ref quantError);
                     PushError(x, y, quantError);
                 }
 #if DEBUG
-                // Вычисляем процент выполнения только по y
+                /*// Вычисляем процент выполнения только по y
                 int totalPixels = height; // Общее количество строк
                 int processedRows = y + 1; // +1, чтобы учесть текущую строку
                 double percentage = (double)processedRows / totalPixels * 100;
 
                 // Выводим процент выполнения в отладочный вывод
                 Debug.WriteLine($"Обработано: {percentage:F2}%");
+                */
 #endif
             }
 
@@ -828,27 +1136,25 @@ namespace Dithering
 
     public class AtkinsonDithering
     {
-        private static ColorApproximater _approximater;
-        private static BinaryWorker _worker;
+        //private static ColorApproximater _approximater;
+        //private static BinaryWorker _worker;
         private static readonly int ColorFunctionMode = 1;
 
-        public static Bitmap Do(Bitmap image, ColorApproximater approximater, BinaryWorker worker)
+        public Bitmap Do(Bitmap image, ColorApproximater approximater, BinaryWorker worker)
         {
-            _approximater = approximater;
-            _worker = worker;
             //approximater = new ColorApproximater(new Color[] { Color.White, Color.Black, Color.AliceBlue });
             AtkinsonDitheringRGBByte atkinson = new AtkinsonDitheringRGBByte(ColorFunction);
             byte[,,] bytes = ReadBitmapToColorBytes(image);
 
             TempByteImageFormat temp = new TempByteImageFormat(bytes);
             Console.WriteLine("\nВсё вроде работает нормально, начинаю конвертацию!\n\n");
-            atkinson.DoDithering(temp);
+            atkinson.DoDithering(temp,approximater);
 
-            WriteToBitmap(image, temp.GetPixelChannels);
+            WriteToBitmap(image, temp.GetPixelChannels,worker, approximater);
             Console.WriteLine($"Конвертация завершена. Файл находится по пути {worker.Path}");
             return image;
         }
-        private static void ColorFunction(in byte[] input, ref byte[] output, ColorApproximater approximater)
+        private void ColorFunction(in byte[] input, ref byte[] output, ColorApproximater approximater)
         {
 
             switch (ColorFunctionMode)
@@ -857,24 +1163,24 @@ namespace Dithering
                     TrueColorBytesToWebSafeColorBytes(input, ref output);
                     break;
                 default:
-                    TrueColorBytesToPalette(input, ref output);
+                    TrueColorBytesToPalette(input, ref output, approximater);
                     break;
             }
         }
-        private static void TrueColorBytesToWebSafeColorBytes(in byte[] input, ref byte[] output)
+        private void TrueColorBytesToWebSafeColorBytes(in byte[] input, ref byte[] output)
         {
             for (int i = 0; i < input.Length; i++)
             {
                 output[i] = (byte)(Math.Round(input[i] / 51.0) * 51);
             }
         }
-        private static void TrueColorBytesToPalette(in byte[] input, ref byte[] output)
+        private static void TrueColorBytesToPalette(in byte[] input, ref byte[] output, ColorApproximater approximater)
         {
-            output = _approximater.Convert((input[0], input[1], input[2]));
+            output = approximater.Convert((input[0], input[1], input[2]));
             //output = new byte[] { i.R, i.G, i.B};
         }
 
-        private static byte[,,] ReadBitmapToColorBytes(Bitmap bitmap)
+        private byte[,,] ReadBitmapToColorBytes(Bitmap bitmap)
         {
             byte[,,] returnValue = new byte[bitmap.Width, bitmap.Height, 3];
             for (int x = 0; x < bitmap.Width; x++)
@@ -890,16 +1196,15 @@ namespace Dithering
             return returnValue;
         }
 
-        private static void WriteToBitmap(Bitmap bitmap, Func<int, int, byte[]> reader)
+        private void WriteToBitmap(Bitmap bitmap, Func<int, int, byte[]> reader, BinaryWorker worker, ColorApproximater approximater)
         {
-            BinaryWorker worker = _worker;
             for (int x = 0; x < bitmap.Width; x++)
             {
                 for (int y = 0; y < bitmap.Height; y++)
                 {
 
                     byte[] read = reader(x, y);
-                    worker.FileValues.Add(_approximater.GetColor((read[0], read[1], read[2])));
+                    worker.FileValues.Add(approximater.GetColor((read[0], read[1], read[2])));
                     Color color = Color.FromArgb(read[0], read[1], read[2]);
                     //bitmap.SetPixel(x, y, color);
                 }
@@ -1098,8 +1403,8 @@ namespace Dithering
         {
             get { return _maxLenght; }
         }
-        private static List<(byte, byte, byte)> _findedColors;
-        private static List<(byte, byte, byte)> _convertedColors;
+        private  List<(byte, byte, byte)> _findedColors;
+        private List<(byte, byte, byte)> _convertedColors;
         public List<List<(byte, byte, byte)>> _hueRgbRange;
         public List<List<(byte, byte, byte)>> _colors;
         private (byte, byte, byte)[] _list_colors;
@@ -1298,7 +1603,7 @@ namespace Dithering
         {
             return Conversation.ToBytes(H, S, L);
         }
-        private static void ResetAHalfOfConverted()
+        private void ResetAHalfOfConverted()
         {
             _findedColors = _findedColors.Skip(MaxLenght / 2).ToList();
             _convertedColors = _convertedColors.Skip(MaxLenght / 2).ToList();
