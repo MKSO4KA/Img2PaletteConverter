@@ -1,6 +1,6 @@
 # Console Application for Converting Images and Videos
 
-The compiled code is a console application that converts images or videos from regular colors to Terraria colors. It uses a copyrighted algorithm (see links at the bottom of the page). The code borrows part of the mix for the dithering algorithm.
+The compiled code is a console application that converts images or videos from regular colors to Terraria colors. It uses a copyrighted algorithm (see links at the bottom of the page). The code borrows part of the part for the dithering algorithm.
 
 ## Features
 
