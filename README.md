@@ -1,7 +1,12 @@
-# Img2PaletteConverter
-Upon receiving the image and palette, the application will begin converting using the anti-aliasing algorithm. The output is an image that is immediately written bitwise for the plugin.The plugin will be able to insert this image into the game. 
+# Console Application for Converting Images and Videos
 
-## Лицензия и авторские права
+The compiled code is a console application that converts images or videos from regular colors to Terraria colors. It uses a copyrighted algorithm (see links at the bottom of the page). The code borrows part of the mix for the dithering algorithm.
+
+## Features
+
+- The converted images are a binary file of special content.
+- This content is necessary for precise placement of art using other scripts added to the game via mods.
+# Лицензия и авторские права
 
 Этот проект лицензирован под лицензией GNU GPL версии 3. Все права защищены.
 
