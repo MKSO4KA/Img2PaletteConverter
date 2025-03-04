@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\USER\\source\\repos\\Img2PaletteConverter\\ConsoleApp2.csproj": {}
+    "C:\\Users\\USER\\source\\repos\\MKSO4KA\\Img2Palette\\ConsoleApp2.csproj": {}
   },
   "projects": {
-    "C:\\Users\\USER\\source\\repos\\Img2PaletteConverter\\ConsoleApp2.csproj": {
+    "C:\\Users\\USER\\source\\repos\\MKSO4KA\\Img2Palette\\ConsoleApp2.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\USER\\source\\repos\\Img2PaletteConverter\\ConsoleApp2.csproj",
+        "projectUniqueName": "C:\\Users\\USER\\source\\repos\\MKSO4KA\\Img2Palette\\ConsoleApp2.csproj",
         "projectName": "ConsoleApp2",
-        "projectPath": "C:\\Users\\USER\\source\\repos\\Img2PaletteConverter\\ConsoleApp2.csproj",
+        "projectPath": "C:\\Users\\USER\\source\\repos\\MKSO4KA\\Img2Palette\\ConsoleApp2.csproj",
         "packagesPath": "C:\\Users\\USER\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\USER\\source\\repos\\Img2PaletteConverter\\obj\\",
+        "outputPath": "C:\\Users\\USER\\source\\repos\\MKSO4KA\\Img2Palette\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

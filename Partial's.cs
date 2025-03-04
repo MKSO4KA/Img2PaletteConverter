@@ -1,4 +1,5 @@
 ﻿using ConsoleApp2;
+using Dithering;
 using Emgu.CV.Dai;
 using System;
 using System.Collections.Generic;
@@ -8,7 +9,7 @@ using System.Dynamic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
+using Shiftren;
 namespace ConsoleApp2
 {
     partial class Pixel
@@ -75,21 +76,195 @@ namespace ConsoleApp2
     }
 
 }
+namespace Shiftren
+{
+    public class MatrixCoder
+    {
+        private const string Base62Chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        private static readonly int[,] EncodingMatrix = { { 3, 2 }, { 1, 4 } };
+        private static readonly int[,] DecodingMatrix = { { 4, -2 }, { -1, 3 } };
+
+        public static string Encode(string input)
+        {
+            if (string.IsNullOrEmpty(input)) return string.Empty;
+
+            // Преобразование в ASCII-коды с паддингом
+            int[] codes = input.Select(c => (int)c).ToArray();
+            if (codes.Length % 2 != 0) codes = codes.Append(0).ToArray();
+
+            // Матричное кодирование
+            List<int> encodedNumbers = new List<int>();
+            for (int i = 0; i < codes.Length; i += 2)
+            {
+                int x = codes[i];
+                int y = codes[i + 1];
+
+                int a = EncodingMatrix[0, 0] * x + EncodingMatrix[0, 1] * y;
+                int b = EncodingMatrix[1, 0] * x + EncodingMatrix[1, 1] * y;
+
+                encodedNumbers.Add(a);
+                encodedNumbers.Add(b);
+            }
+
+            // Base64 кодирование с фиксированной длиной
+            return string.Join("", encodedNumbers.Select(n => ToBase62(n)));
+        }
+
+        public static string Decode(string encoded)
+        {
+            if (string.IsNullOrEmpty(encoded)) return string.Empty;
+            if (encoded.Length % 2 != 0) throw new ArgumentException("Invalid encoded string");
+
+            // Разбиение на пары символов
+            List<int> numbers = new List<int>();
+            for (int i = 0; i < encoded.Length; i += 2)
+            {
+                string pair = encoded.Substring(i, 2);
+                numbers.Add(FromBase62(pair));
+            }
+
+            // Матричное декодирование
+            List<int> decodedCodes = new List<int>();
+            for (int i = 0; i < numbers.Count; i += 2)
+            {
+                int a = numbers[i];
+                int b = numbers[i + 1];
+
+                int x = (DecodingMatrix[0, 0] * a + DecodingMatrix[0, 1] * b) / 10;
+                int y = (DecodingMatrix[1, 0] * a + DecodingMatrix[1, 1] * b) / 10;
+
+                decodedCodes.Add(x);
+                decodedCodes.Add(y);
+            }
+
+            // Удаление паддинга и преобразование
+            return new string(decodedCodes.TakeWhile(c => c != 0).Select(c => (char)c).ToArray());
+        }
+
+        private static string ToBase62(int number)
+        {
+            if (number < 0) throw new ArgumentException("Number must be non-negative");
+
+            var sb = new StringBuilder();
+            do
+            {
+                sb.Insert(0, Base62Chars[number % 62]);
+                number /= 62;
+            } while (number > 0);
+
+            // Паддинг до 2 символов
+            return sb.Length switch
+            {
+                1 => "0" + sb,
+                2 => sb.ToString(),
+                _ => throw new InvalidOperationException("Unexpected base62 length")
+            };
+        }
+
+        private static int FromBase62(string str)
+        {
+            return str.Aggregate(0, (current, c) =>
+                current * 62 + Base62Chars.IndexOf(c));
+        }
+    }
+
+}
 namespace Dithering
 {
     // Перенёс Сюда, ибо это каец, как много строк.
     partial class ColorApproximater
     {
+        public static async Task<uint> UserOpinion()
+        {
+            Console.WriteLine("Y/N");
+            string? input = Console.ReadLine();
+
+            if (string.IsNullOrEmpty(input) || !char.IsLetter(input[0]))
+            {
+                throw new InvalidProgramException($"Ошибка, дан неверный ответ \n0x{MatrixCoder.Encode("IncorrectOpinion1")}");
+            }
+
+            char choice = char.ToUpper(input[0]); // Приводим первый символ к верхнему регистру
+
+            return choice switch
+            {
+                'Y' => 1,
+                'N' => 2,
+                _ => throw new InvalidProgramException($"Ошибка, дан неверный ответ \n0x{MatrixCoder.Encode("IncorrectOpinion2")}")
+            };
+        }
         public static bool SetTiles(List<string> rawTiles)
         {
             //"1:4:29:000000:Block:Torches:ShadowPaint"
             //          Example
             //string input = "1:4:29:000000:Block:Torches:ShadowPaint";
             //string[] elements = input.Split(':'); // 7
+            // Возможно, что будет ваша палитра по типу - "4:001002:WOOL"
+            // Кастомные палитры все длинны 3. Ибо мне лень делать как-то иначе
+            // ФОрмат - "Number:COLOR_HEX:Name"
+            byte k = 0;
+            if (rawTiles[0].Split(':').Length == 3)
+            {
+                Console.WriteLine("Будет использоваться ваша - Кастомная палитра, вы согласны?");
+                if (UserOpinion().Result != 1)
+                {
+                    throw new InvalidDataException($"Тогда исправьте эту палитру или найдите новую. \n0x{MatrixCoder.Encode("Palette")}");
+                }
+                Console.WriteLine("Это режим для профессионалов.\nЦвет должен быть задан следующим образом - #0F08A3\nИспользование цвета без '#' недопустимо.\nПриступим?");
+                if (UserOpinion().Result != 1)
+                {
+                    throw new InvalidDataException($"Тогда исправьте эту палитру или найдите новую. \n0x{MatrixCoder.Encode("Palette")}");
+                }
+                for (int i = 0; i < rawTiles.Count; i++)
+                {
+                    rawTiles[i] = FormatInputData(rawTiles[i]);
+                }
+            }
+
             if (!(rawTiles[0].Split(':').Length == 7))
                 return false;
             _tilesDefault = rawTiles.ToArray();
             return true;
+        }
+        private static string FormatInputData(string input)
+        {
+            // Разделяем строку на части
+            var parts = input.Split(new[] { ':', ',' }, StringSplitOptions.RemoveEmptyEntries);
+            // Инициализация переменных
+            string id = string.Empty;
+            string color = string.Empty;
+            string name = string.Empty;
+
+            // Определяем id, color и name
+            foreach (var part in parts)
+            {
+                string trimmedPart = part.Trim();
+
+                // Проверяем, является ли часть id
+                if (uint.TryParse(trimmedPart, out uint idValue))
+                {
+                    id = trimmedPart;
+                }
+                // Проверяем, является ли часть цветом
+                else if (IsHexColor(trimmedPart))
+                {
+                    color = trimmedPart;
+                }
+                // Если это не id и не color, то это имя
+                else
+                {
+                    name = trimmedPart;
+                }
+            }
+
+            // Формируем новую строку
+            return $"1:{id}:0:{color}:Block:{name}:-";
+        }
+
+        // Метод для проверки, является ли строка шестнадцатеричным цветом
+        private static bool IsHexColor(string input)
+        {
+            return input.Length == 7 && input.All(c => "#0123456789ABCDEFabcdef".Contains(c));
         }
         public static bool SetGray()
         {
@@ -99,7 +274,7 @@ namespace Dithering
             string[] palette = _tilesDefault.ToArray();
             foreach (var tile in palette)
             {
-                color = Pixel.ToBytes(tile.Split(':')[3]);
+                color = Pixel.ToBytes(tile.Split(':')[3]) ?? (0,0,0);
                 // Проверка, является ли цвет градацией серого
                 if ((color.Item1 == color.Item2 && color.Item2 == color.Item3))
                 {

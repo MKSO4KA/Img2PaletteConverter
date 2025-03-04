@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "WBepYQ7wWnw=",
+  "dgSpecHash": "wiOpio76kXo=",
   "success": true,
-  "projectFilePath": "C:\\Users\\USER\\source\\repos\\Img2PaletteConverter\\ConsoleApp2.csproj",
+  "projectFilePath": "C:\\Users\\USER\\source\\repos\\MKSO4KA\\Img2Palette\\ConsoleApp2.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\USER\\.nuget\\packages\\emgu.cv\\4.9.0.5494\\emgu.cv.4.9.0.5494.nupkg.sha512",
     "C:\\Users\\USER\\.nuget\\packages\\emgu.cv.bitmap\\4.9.0.5494\\emgu.cv.bitmap.4.9.0.5494.nupkg.sha512",

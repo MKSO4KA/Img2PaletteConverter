@@ -37,9 +37,11 @@ namespace ConsoleApp2
         {
             string filePath, totalPath;
             uint photoCount, framerate;
-
+            string Checker = null;
             Console.WriteLine("Введите путь к файлу (png, jpg, mp4):");
-            filePath = Console.ReadLine();
+            filePath = DelTrashFromPath(Console.ReadLine());
+
+
 
             if (!ValidateFilePath(filePath))
             {
@@ -47,10 +49,16 @@ namespace ConsoleApp2
             }
 
             Console.WriteLine("Введите вероятное количество одновременно выполняемых задач:");
-            semafors = Convert.ToInt32(Console.ReadLine());
+            Checker = Console.ReadLine();
+            if (!IsNumeric(Checker))
+            {
+                Console.WriteLine("Количество задач не распознано");
+                Checker = $"{semafors}";
+            }
+            semafors = Convert.ToInt32(Checker);
 
             Console.WriteLine("Введите путь к желаемому выходному файлу:");
-            totalPath = Console.ReadLine();
+            totalPath = DelTrashFromPath(Console.ReadLine());
 
             if (!ValidateDirectoryPath(totalPath))
             {
@@ -74,7 +82,30 @@ namespace ConsoleApp2
                 Console.WriteLine($"Файл {GetFileName(filePath)} не найден. Пожалуйста, проверьте путь и попробуйте снова.");
             }
         }
+        private static bool IsNumeric(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+            {
+                return false; // Возвращаем false для пустой или null строки
+            }
 
+            foreach (char c in input)
+            {
+                if (!char.IsDigit(c))
+                {
+                    return false; // Если найден нецифровой символ, возвращаем false
+                }
+            }
+
+            return true; // Если все символы цифры, возвращаем true
+        }
+        private static string DelTrashFromPath(string path)
+        {
+            string[] pathArray = path.Split((char)'.');
+            if (path == null) { return ""; }
+            pathArray = path.Split((char)'.');
+            return string.Join(".", pathArray.Take(pathArray.Length)).Replace("\"", "");
+        }
         private static bool ValidateFilePath(string path)
         {
             if (!File.Exists(path))
@@ -108,7 +139,14 @@ namespace ConsoleApp2
         private static async Task<uint> HandleImageProcessing(string filePath, string totalPath)
         {
             Console.WriteLine("Необходимо обработать одно фото в этой директории?\nY - одно фото. N - все фото, найденные в директории");
-            char choice = Console.ReadLine().First();
+            string input = Console.ReadLine();
+
+            if (string.IsNullOrEmpty(input) || !char.IsLetter(input[0]))
+            {
+                throw new InvalidOperationException("Ошибка, дан неверный ответ");
+            }
+
+            char choice = char.ToUpper(input[0]); // Приводим первый символ к верхнему регистру
 
             return choice switch
             {
@@ -177,11 +215,11 @@ namespace ConsoleApp2
             while (frameQueue.TryDequeue(out var item))
             {
                 await semaphore.WaitAsync(); // Ждем, пока не освободится место
-                
+
                 // Запускаем задачу
                 tasks.Add(Task.Run(async () =>
                 {
-                    
+
                     try
                     {
                         int index = item.index;
@@ -195,13 +233,13 @@ namespace ConsoleApp2
                             throw new Exception("File Exists"); // Переходим к следующему кадру
                         }
 
-                        if (inds.TryAdd(index, true) ==  false)
+                        if (inds.TryAdd(index, true) == false)
                         {
                             throw new Exception("inds error");
                         }
 
                         PhotoTileConverter converter = new PhotoTileConverter(VideoPath, "", filePath);
-                         // Добавляем текущий индекс
+                        // Добавляем текущий индекс
                         await converter.Convert(index, frame); // Выполняем конвертацию асинхронно
                     }
                     catch (Exception ex) // Обработка исключений
@@ -350,7 +388,7 @@ namespace ConsoleApp2
         public static IEnumerable<Bitmap> GetPhotos(IEnumerable<string> imageFiles)
         {
             // Получаем все файлы с расширениями .jpg и .png
-            
+
             foreach (var file in imageFiles)
             {
                 // Загружаем изображение и возвращаем его
@@ -467,14 +505,30 @@ namespace ConsoleApp2
         public List<Pixel> Objects = new List<Pixel>();
 
         // Конструктор класса, принимает массив строк, представляющих пути
-        public Pixels(string[] Path)
+        public Pixels(string[] Path, bool Mode = true)
         {
-            foreach (string tileLine in Path)
+            // "1:4:29:000000:Block:Torches:ShadowPaint"
+            if (Mode == true)
             {
-                // Разделяем строку на части, используя двоеточие (:) в качестве разделителя
-                string[] parts = tileLine.Split(':');
-                // Создаем объект Pixel и добавляем его в список
-                Add(new Pixel(parts, parts[0] == "0" ? true : false));
+                foreach (string tileLine in Path)
+                {
+                    // Разделяем строку на части, используя двоеточие (:) в качестве разделителя
+                    string[] parts = tileLine.Split(':');
+                    // Создаем объект Pixel и добавляем его в список
+                    Add(new Pixel(parts, parts[0] == "0" ? true : false));
+                }
+                return;
+            }
+            if (Mode == false)
+            {
+                foreach (string tileLine in Path)
+                {
+                    // Разделяем строку на части, используя двоеточие (:) в качестве разделителя
+                    string[] parts = tileLine.Split(':');
+                    // Создаем объект Pixel и добавляем его в список
+                    Add(new Pixel(parts, true));
+                }
+                return;
             }
 
             /*
@@ -557,7 +611,7 @@ namespace ConsoleApp2
             Wall = wall; // Устанавливаем признак стены
             id = Convert.ToUInt16(element.Attribute("num").Value); // Получаем ID
             paint = Convert.ToByte(element.Attribute("paintID").Value); // Получаем ID краски
-            color = ToBytes(element.Attribute("color").Value); // Получаем цвет
+            color = ToBytes(element.Attribute("color").Value) ?? (0,0,0); // Получаем цвет
             WallAtached = element.Attribute("Torch").Value == "true" ? true : false; // Устанавливаем признак прикрепленного факела
         }
 
@@ -568,12 +622,12 @@ namespace ConsoleApp2
             Wall = wall; // Устанавливаем признак стены
             id = Convert.ToUInt16(parts[1]); // Получаем ID
             paint = Convert.ToByte(parts[2]); // Получаем ID краски
-            color = ToBytes(parts[3]); // Получаем цвет
+            color = ToBytes(parts[3]) ?? (0, 0, 0); // Получаем цвет
             WallAtached = DefTorchs.IndexOf(parts[1]) != -1 ? true : false; // Устанавливаем признак прикрепленного факела
         }
 
         // Метод для конвертации шестнадцатеричного значения в байты
-        public static (byte, byte, byte) ToBytes(string hexValue)
+        public static (byte, byte, byte)? ToBytes(string hexValue)
         {
             int hexColor = Convert.ToInt32(hexValue.Replace("#", ""), 16); // Преобразуем шестнадцатеричное значение в целое число
             return ((byte)((hexColor >> 16) & 0xff), // Извлекаем красный компонент
@@ -599,7 +653,7 @@ namespace ConsoleApp2
             set { _defExceptionsTiles = value; }
         }
     }
-    
+
     internal class PhotoTileConverter
     {
         private string _path;
@@ -619,7 +673,7 @@ namespace ConsoleApp2
             get { return _colors ?? []; }
             set { _colors = value; }
         }
-        
+
         /// <summary>
         /// Читает цвета пикселей из заданного изображения (Bitmap) и возвращает массив, 
         /// содержащий цвета, сгруппированные в подмассивы по 100000 пикселей каждый.
@@ -679,132 +733,79 @@ namespace ConsoleApp2
 namespace Dithering
 {
 
-    #region From Dithering Mischa
+    #region Dithering Implementation (Optimized with Error Handling)
+
+    using System;
+    using System.Drawing;
+    using System.Drawing.Imaging;
+    using System.Runtime.InteropServices;
 
     public abstract class DitheringBase<T>
     {
-        /// <summary>
-        /// Width of bitmap
-        /// </summary>
         protected int width;
-
-        /// <summary>
-        /// Height of bitmap
-        /// </summary>
         protected int height;
-
-        /// <summary>
-        /// Color reduction function/method
-        /// </summary>
+        protected int channelsPerPixel;
         protected ColorFunction colorFunction;
-
-        /// <summary>
-        /// Current bitmap
-        /// </summary>
         private IImageFormat<T> currentBitmap;
 
-        /// <summary>
-        /// Color function for color reduction
-        /// </summary>
-        /// <param name="inputColors">Input colors</param>
-        /// <param name="outputColors">Output colors</param>
         public delegate void ColorFunction(in T[] inputColors, ref T[] outputColors, ColorApproximater colorApproximater);
 
-        /// <summary>
-        /// Base constructor
-        /// </summary>
-        /// <param name="colorfunc">Color reduction function/method</param>
-        /// <param name="longName">Long name of dither method</param>
-        /// <param name="fileNameAdd">Filename addition</param>
-        protected DitheringBase(ColorFunction colorfunc, string longName, string fileNameAdd)
+        protected DitheringBase(ColorFunction colorfunc)
         {
-            colorFunction = colorfunc;
-            MethodLongName = longName;
-            FileNameAddition = fileNameAdd;
+            colorFunction = colorfunc ?? throw new ArgumentNullException(nameof(colorfunc));
         }
 
-        /// <summary>
-        /// Long name of the dither method
-        /// </summary>
-        public string MethodLongName { get; }
-
-        /// <summary>
-        /// Filename addition
-        /// </summary>
-        public string FileNameAddition { get; }
-
-        /// <summary>
-        /// Do dithering for chosen image with chosen color reduction method. Work horse, call this when you want to dither something
-        /// </summary>
-        /// <param name="input">Input image</param>
-        /// <returns>Dithered image</returns>
         public IImageFormat<T> DoDithering(IImageFormat<T> input, ColorApproximater approximater)
         {
-            width = input.GetWidth();
-            height = input.GetHeight();
-            int channelsPerPixel = input.GetChannelsPerPixel();
-            currentBitmap = input;
+            if (input == null)
+                throw new ArgumentNullException(nameof(input));
+            if (approximater == null)
+                throw new ArgumentNullException(nameof(approximater));
 
-            T[] originalPixel = new T[channelsPerPixel];
-            T[] newPixel = new T[channelsPerPixel];
-            T[] tempBuffer = new T[channelsPerPixel]; // Инициализация здесь
-            double[] quantError = new double[channelsPerPixel];
-
-            for (int y = 0; y < height; y++)
+            try
             {
-                for (int x = 0; x < width; x++)
+                width = input.GetWidth();
+                height = input.GetHeight();
+                channelsPerPixel = input.GetChannelsPerPixel();
+                currentBitmap = input;
+
+                T[] originalPixel = new T[channelsPerPixel];
+                T[] newPixel = new T[channelsPerPixel];
+                double[] quantError = new double[channelsPerPixel];
+
+                for (int y = 0; y < height; y++)
                 {
-                    input.GetPixelChannels(x, y, ref originalPixel);
-                    colorFunction(in originalPixel, ref newPixel, approximater);
+                    for (int x = 0; x < width; x++)
+                    {
+                        input.GetPixelChannels(x, y, ref originalPixel);
+                        colorFunction(in originalPixel, ref newPixel, approximater);
 
-                    input.SetPixelChannels(x, y, newPixel);
-                    input.GetQuantErrorsPerChannel(in originalPixel, in newPixel, ref quantError);
-                    PushError(x, y, quantError);
+                        if (newPixel.Length != channelsPerPixel)
+                            throw new InvalidOperationException("Color function returned incorrect pixel format.");
+
+                        input.SetPixelChannels(x, y, newPixel);
+                        input.GetQuantErrorsPerChannel(in originalPixel, in newPixel, ref quantError);
+                        PushError(x, y, quantError);
+                    }
                 }
-#if DEBUG
-                /*// Вычисляем процент выполнения только по y
-                int totalPixels = height; // Общее количество строк
-                int processedRows = y + 1; // +1, чтобы учесть текущую строку
-                double percentage = (double)processedRows / totalPixels * 100;
-
-                // Выводим процент выполнения в отладочный вывод
-                Debug.WriteLine($"Обработано: {percentage:F2}%");
-                */
-#endif
+                return input;
             }
-
-            return input;
+            catch (Exception ex)
+            {
+                throw new DitheringException("Dithering process failed.", ex);
+            }
         }
 
-        /// <summary>
-        /// Check if image coordinate is valid
-        /// </summary>
-        /// <param name="x">X coordinate</param>
-        /// <param name="y">Y coordinate</param>
-        /// <returns>True if valid; False otherwise</returns>
         protected bool IsValidCoordinate(int x, int y)
         {
-            return (0 <= x && x < width && 0 <= y && y < height);
+            return x >= 0 && x < width && y >= 0 && y < height;
         }
 
-        /// <summary>
-        /// How error cumulation should be handled. Implement this for every dithering method
-        /// </summary>
-        /// <param name="x">X coordinate</param>
-        /// <param name="y">Y coordinate</param>
-        /// <param name="quantError">Quantization error</param>
         protected abstract void PushError(int x, int y, double[] quantError);
 
-        /// <summary>
-        /// Modify image with error and multiplier
-        /// </summary>
-        /// <param name="x">X coordinate</param>
-        /// <param name="y">Y coordinate</param>
-        /// <param name="quantError">Quantization error</param>
-        /// <param name="multiplier">Multiplier</param>
-        public void ModifyImageWithErrorAndMultiplier(int x, int y, double[] quantError, double multiplier)
+        protected void ModifyImageWithErrorAndMultiplier(int x, int y, double[] quantError, double multiplier)
         {
-            T[] tempBuffer = new T[width * height]; // Создаем временный буфер
+            T[] tempBuffer = new T[channelsPerPixel];
             currentBitmap.GetPixelChannels(x, y, ref tempBuffer);
             currentBitmap.ModifyPixelChannelsWithQuantError(ref tempBuffer, quantError, multiplier);
             currentBitmap.SetPixelChannels(x, y, tempBuffer);
@@ -813,383 +814,248 @@ namespace Dithering
 
     public sealed class AtkinsonDitheringRGBByte : DitheringBase<byte>
     {
-        /// <summary>
-        /// Constructor for Atkinson dithering
-        /// </summary>
-        /// <param name="colorfunc">Color function</param>
-        public AtkinsonDitheringRGBByte(ColorFunction colorfunc) : base(colorfunc, "Atkinson", "_ATK") { }
+        private static readonly int[] xOffsets = { 1, 2, -1, 0, 1, 0 };
+        private static readonly int[] yOffsets = { 0, 0, 1, 1, 1, 2 };
 
-        /// <summary>
-        /// Push error method for Atkinson dithering
-        /// </summary>
-        /// <param name="x">X coordinate</param>
-        /// <param name="y">Y coordinate</param>
-        /// <param name="quantError">Quantization error</param>
-        override protected void PushError(int x, int y, double[] quantError)
+        public AtkinsonDitheringRGBByte(ColorFunction colorfunc) : base(colorfunc) { }
+
+        protected override void PushError(int x, int y, double[] quantError)
         {
-            int xMinusOne = x - 1;
-            int xPlusOne = x + 1;
-            int xPlusTwo = x + 2;
-            int yPlusOne = y + 1;
-            int yPlusTwo = y + 2;
-
-            double multiplier = 1.0 / 8.0; // Atkinson Dithering has same multiplier for every item
-
-            // Current row
-            if (IsValidCoordinate(xPlusOne, y)) ModifyImageWithErrorAndMultiplier(xPlusOne, y, quantError, multiplier);
-            if (IsValidCoordinate(xPlusTwo, y)) ModifyImageWithErrorAndMultiplier(xPlusTwo, y, quantError, multiplier);
-
-            // Next row
-            if (IsValidCoordinate(xMinusOne, yPlusOne)) ModifyImageWithErrorAndMultiplier(xMinusOne, yPlusOne, quantError, multiplier);
-            if (IsValidCoordinate(x, yPlusOne)) ModifyImageWithErrorAndMultiplier(x, yPlusOne, quantError, multiplier);
-            if (IsValidCoordinate(xPlusOne, yPlusOne)) ModifyImageWithErrorAndMultiplier(xPlusOne, yPlusOne, quantError, multiplier);
-
-            // Next row
-            if (IsValidCoordinate(x, yPlusTwo)) ModifyImageWithErrorAndMultiplier(x, yPlusTwo, quantError, multiplier);
+            const double multiplier = 1.0 / 8.0;
+            for (int i = 0; i < xOffsets.Length; i++)
+            {
+                int nx = x + xOffsets[i];
+                int ny = y + yOffsets[i];
+                if (IsValidCoordinate(nx, ny))
+                    ModifyImageWithErrorAndMultiplier(nx, ny, quantError, multiplier);
+            }
         }
+    }
+
+    public class DitheringException : Exception
+    {
+        public DitheringException(string message, Exception inner) : base(message, inner) { }
     }
 
     public interface IImageFormat<T>
     {
-        /// <summary>
-        /// Get width
-        /// </summary>
-        /// <returns>Width of image</returns>
         int GetWidth();
-
-        /// <summary>
-        /// Get height
-        /// </summary>
-        /// <returns>Height of image</returns>
         int GetHeight();
-
-        /// <summary>
-        /// Get channels per pixel
-        /// </summary>
-        /// <returns>Channels per pixel</returns>
         int GetChannelsPerPixel();
-
-        /// <summary>
-        /// Get raw content as array
-        /// </summary>
-        /// <returns>Array</returns>
         T[] GetRawContent();
-
-        /// <summary>
-        /// Set pixel channels of certain coordinate
-        /// </summary>
-        /// <param name="x">X coordinate</param>
-        /// <param name="y">Y coordinate</param>
-        /// <param name="newValues">New values</param>
         void SetPixelChannels(int x, int y, T[] newValues);
-
-        /// <summary>
-        /// Get pixel channels of certain coordinate
-        /// </summary>
-        /// <param name="x">X coordinate</param>
-        /// <param name="y">Y coordinate</param>
-        /// <returns>Values as array</returns>
         T[] GetPixelChannels(int x, int y);
-
-        /// <summary>
-        /// Get pixel channels of certain coordinate
-        /// </summary>
-        /// <param name="x">X coordinate</param>
-        /// <param name="y">Y coordinate</param>
-        /// <param name="pixelStorage">Array where pixel channels values will be written</param>
         void GetPixelChannels(int x, int y, ref T[] pixelStorage);
-
-        /// <summary>
-        /// Get quantization errors per channel
-        /// </summary>
-        /// <param name="originalPixel">Original pixels</param>
-        /// <param name="newPixel">New pixels</param>
-        /// <returns>Error values as double array</returns>
         double[] GetQuantErrorsPerChannel(T[] originalPixel, T[] newPixel);
-
-        /// <summary>
-        /// Get quantization errors per channel
-        /// </summary>
-        /// <param name="originalPixel">Original pixels</param>
-        /// <param name="newPixel">New pixels</param>
-        /// <param name="errorValues">Error values as double array</param>
         void GetQuantErrorsPerChannel(in T[] originalPixel, in T[] newPixel, ref double[] errorValues);
-
-    /// <summary>
-    /// Modify existing values with quantization errors
-    /// </summary>
-    /// <param name="modifyValues">Values to modify</param>
-    /// <param name="quantErrors">Quantization errors</param>
-    /// <param name="multiplier">Multiplier</param>
         void ModifyPixelChannelsWithQuantError(ref T[] modifyValues, double[] quantErrors, double multiplier);
     }
 
     public sealed class TempByteImageFormat : IImageFormat<byte>
     {
-        /// <summary>
-        /// Width of bitmap
-        /// </summary>
-        public readonly int width;
-
-        /// <summary>
-        /// Height of bitmap
-        /// </summary>
-        public readonly int height;
-
         private readonly byte[,,] content3d;
-
         private readonly byte[] content1d;
+        public int Width { get; }
+        public int Height { get; }
+        public int ChannelsPerPixel { get; }
 
-        /// <summary>
-        /// How many color channels per pixel
-        /// </summary>
-        public readonly int channelsPerPixel;
-
-        /// <summary>
-        /// Constructor for temp byte image format
-        /// </summary>
-        /// <param name="input">Input bitmap as three dimensional (width, height, channels per pixel) byte array</param>
-        /// <param name="createCopy">True if you want to create copy of data</param>
         public TempByteImageFormat(byte[,,] input, bool createCopy = false)
         {
-            content3d = createCopy ? (byte[,,])input.Clone() : input;
+            if (input == null)
+                throw new ArgumentNullException(nameof(input));
+
+            if (createCopy)
+            {
+                content3d = (byte[,,])input.Clone();
+            }
+            else
+            {
+                content3d = input;
+            }
             content1d = null;
-            width = input.GetLength(0);
-            height = input.GetLength(1);
-            channelsPerPixel = input.GetLength(2);
+            Width = input.GetLength(0);
+            Height = input.GetLength(1);
+            ChannelsPerPixel = input.GetLength(2);
         }
 
-        /// <summary>
-        /// Constructor for temp byte image format
-        /// </summary>
-        /// <param name="input">Input byte array</param>
-        /// <param name="imageWidth">Width</param>
-        /// <param name="imageHeight">Height</param>
-        /// <param name="imageChannelsPerPixel">Image channels per pixel</param>
-        /// <param name="createCopy">True if you want to create copy of data</param>
-        public TempByteImageFormat(byte[] input, int imageWidth, int imageHeight, int imageChannelsPerPixel, bool createCopy = false)
+        public TempByteImageFormat(byte[] input, int width, int height, int channels, bool createCopy = false)
         {
+            if (input == null)
+                throw new ArgumentNullException(nameof(input));
+            if (width * height * channels != input.Length)
+                throw new ArgumentException("Invalid dimensions.");
+
             content3d = null;
-            content1d = createCopy ? new byte[input.Length] : input;
-            if (createCopy) Buffer.BlockCopy(input, 0, content1d, 0, input.Length);
-            width = imageWidth;
-            height = imageHeight;
-            channelsPerPixel = imageChannelsPerPixel;
+            if (createCopy)
+            {
+                content1d = new byte[input.Length];
+                Buffer.BlockCopy(input, 0, content1d, 0, input.Length);
+            }
+            else
+            {
+                content1d = input;
+            }
+            Width = width;
+            Height = height;
+            ChannelsPerPixel = channels;
         }
 
-        /// <summary>
-        /// Get width of bitmap
-        /// </summary>
-        /// <returns>Width in pixels</returns>
-        public int GetWidth() => width;
+        public int GetWidth() => Width;
+        public int GetHeight() => Height;
+        public int GetChannelsPerPixel() => ChannelsPerPixel;
 
-        /// <summary>
-        /// Get height of bitmap
-        /// </summary>
-        /// <returns>Height in pixels</returns>
-        public int GetHeight() => height;
-
-        /// <summary>
-        /// Get channels per pixel
-        /// </summary>
-        /// <returns>Channels per pixel</returns>
-        public int GetChannelsPerPixel() => channelsPerPixel;
-
-        /// <summary>
-        /// Get raw content as byte array
-        /// </summary>
-        /// <returns>Byte array</returns>
         public byte[] GetRawContent()
         {
             if (content1d != null) return content1d;
 
-            byte[] returnArray = new byte[width * height * channelsPerPixel];
-            int currentIndex = 0;
-            for (int y = 0; y < height; y++)
+            byte[] result = new byte[Width * Height * ChannelsPerPixel];
+            int index = 0;
+            for (int y = 0; y < Height; y++)
             {
-                for (int x = 0; x < width; x++)
+                for (int x = 0; x < Width; x++)
                 {
-                    for (int i = 0; i < channelsPerPixel; i++)
+                    for (int c = 0; c < ChannelsPerPixel; c++)
                     {
-                        returnArray[currentIndex++] = content3d[x, y, i];
+                        result[index++] = content3d[x, y, c];
                     }
                 }
             }
-            return returnArray;
+            return result;
         }
 
-        /// <summary>
-        /// Set pixel channels of certain coordinate
-        /// </summary>
-        /// <param name="x">X coordinate</param>
-        /// <param name="y">Y coordinate</param>
-        /// <param name="newValues">New values as object array</param>
         public void SetPixelChannels(int x, int y, byte[] newValues)
         {
+            ValidateCoordinates(x, y);
+            if (newValues == null || newValues.Length != ChannelsPerPixel)
+                throw new ArgumentException("Invalid pixel data.");
+
             if (content1d != null)
             {
-                int indexBase = y * width * channelsPerPixel + x * channelsPerPixel;
-                for (int i = 0; i < channelsPerPixel; i++)
-                {
-                    content1d[indexBase + i] = newValues[i];
-                }
+                int index = (y * Width + x) * ChannelsPerPixel;
+                Array.Copy(newValues, 0, content1d, index, ChannelsPerPixel);
             }
             else
             {
-                for (int i = 0; i < channelsPerPixel; i++)
+                for (int i = 0; i < ChannelsPerPixel; i++)
                 {
                     content3d[x, y, i] = newValues[i];
                 }
             }
         }
 
-        /// <summary>
-        /// Get pixel channels of certain coordinate
-        /// </summary>
-        /// <param name="x">X coordinate</param>
-        /// <param name="y">Y coordinate ```csharp
-        /// <returns>Values as byte array</returns>
         public byte[] GetPixelChannels(int x, int y)
         {
-            byte[] returnArray = new byte[channelsPerPixel];
-
-            if (content1d != null)
-            {
-                int indexBase = y * width * channelsPerPixel + x * channelsPerPixel;
-                for (int i = 0; i < channelsPerPixel; i++)
-                {
-                    returnArray[i] = content1d[indexBase + i];
-                }
-            }
-            else
-            {
-                for (int i = 0; i < channelsPerPixel; i++)
-                {
-                    returnArray[i] = content3d[x, y, i];
-                }
-            }
-
-            return returnArray;
+            ValidateCoordinates(x, y);
+            byte[] pixel = new byte[ChannelsPerPixel];
+            GetPixelChannels(x, y, ref pixel);
+            return pixel;
         }
 
-        /// <summary>
-        /// Get pixel channels of certain coordinate
-        /// </summary>
-        /// <param name="x">X coordinate</param>
-        /// <param name="y">Y coordinate</param>
-        /// <param name="pixelStorage">Array where pixel channels values will be written</param>
         public void GetPixelChannels(int x, int y, ref byte[] pixelStorage)
         {
+            ValidateCoordinates(x, y);
+            if (pixelStorage == null || pixelStorage.Length < ChannelsPerPixel)
+                throw new ArgumentException("Invalid pixel buffer.");
+
             if (content1d != null)
             {
-                int indexBase = y * width * channelsPerPixel + x * channelsPerPixel;
-                for (int i = 0; i < channelsPerPixel; i++)
-                {
-                    pixelStorage[i] = content1d[indexBase + i];
-                }
+                int index = (y * Width + x) * ChannelsPerPixel;
+                Array.Copy(content1d, index, pixelStorage, 0, ChannelsPerPixel);
             }
             else
             {
-                for (int i = 0; i < channelsPerPixel; i++)
+                for (int i = 0; i < ChannelsPerPixel; i++)
                 {
                     pixelStorage[i] = content3d[x, y, i];
                 }
             }
         }
 
-        /// <summary>
-        /// Get quantization errors per channel
-        /// </summary>
-        /// <param name="originalPixel">Original pixels</param>
-        /// <param name="newPixel">New pixels</param>
-        /// <returns>Error values as double array</returns>
         public double[] GetQuantErrorsPerChannel(byte[] originalPixel, byte[] newPixel)
         {
-            double[] returnValue = new double[channelsPerPixel];
+            if (originalPixel == null || newPixel == null)
+                throw new ArgumentNullException();
+            if (originalPixel.Length != ChannelsPerPixel || newPixel.Length != ChannelsPerPixel)
+                throw new ArgumentException("Invalid pixel data.");
 
-            for (int i = 0; i < channelsPerPixel; i++)
-            {
-                returnValue[i] = originalPixel[i] - newPixel[i];
-            }
-
-            return returnValue;
+            double[] errors = new double[ChannelsPerPixel];
+            GetQuantErrorsPerChannel(originalPixel, newPixel, ref errors);
+            return errors;
         }
 
-        /// <summary>
-        /// Get quantization errors per channel
-        /// </summary>
-        /// <param name="originalPixel">Original pixels</param>
-        /// <param name="newPixel">New pixels</param>
-        /// <param name="errorValues">Error values as double array</param>
         public void GetQuantErrorsPerChannel(in byte[] originalPixel, in byte[] newPixel, ref double[] errorValues)
         {
-            for (int i = 0; i < channelsPerPixel; i++)
+            if (originalPixel == null || newPixel == null || errorValues == null)
+                throw new ArgumentNullException();
+            if (originalPixel.Length != ChannelsPerPixel || newPixel.Length != ChannelsPerPixel || errorValues.Length != ChannelsPerPixel)
+                throw new ArgumentException("Array length mismatch.");
+
+            for (int i = 0; i < ChannelsPerPixel; i++)
             {
                 errorValues[i] = originalPixel[i] - newPixel[i];
             }
         }
 
-        /// <summary>
-        /// Modify existing values with quantization errors
-        /// </summary>
-        /// <param name="modifyValues">Values to modify</param>
-        /// <param name="quantErrors">Quantization errors</param>
-        /// <param name="multiplier">Multiplier</param>
         public void ModifyPixelChannelsWithQuantError(ref byte[] modifyValues, double[] quantErrors, double multiplier)
         {
-            for (int i = 0; i < channelsPerPixel; i++)
+            if (modifyValues == null || quantErrors == null)
+                throw new ArgumentNullException();
+            if (modifyValues.Length != ChannelsPerPixel || quantErrors.Length != ChannelsPerPixel)
+                throw new ArgumentException("Array length mismatch.");
+
+            for (int i = 0; i < ChannelsPerPixel; i++)
             {
-                modifyValues[i] = GetLimitedValue((byte)modifyValues[i], quantErrors[i] * multiplier);
+                double newValue = modifyValues[i] + quantErrors[i] * multiplier;
+                modifyValues[i] = Clamp(newValue);
             }
         }
 
-        private static byte GetLimitedValue(byte original, double error)
+        private static byte Clamp(double value)
         {
-            double newValue = original + error;
-            return Clamp(newValue, byte.MinValue, byte.MaxValue);
+            return (byte)Math.Clamp(value, 0, 255);
         }
 
-        // C# doesn't have a Clamp method so we need this
-        private static byte Clamp(double value, double min, double max)
+        private void ValidateCoordinates(int x, int y)
         {
-            return (value < min) ? (byte)min : (value > max) ? (byte)max : (byte)value;
+            if (x < 0 || x >= Width || y < 0 || y >= Height)
+                throw new ArgumentOutOfRangeException($"Coordinates ({x}, {y}) are out of bounds.");
         }
     }
-    #endregion
 
     public class AtkinsonDithering
     {
-        //private static ColorApproximater _approximater;
-        //private static BinaryWorker _worker;
         private static readonly int ColorFunctionMode = 1;
 
         public Bitmap Do(Bitmap image, ColorApproximater approximater, BinaryWorker worker)
         {
-            //approximater = new ColorApproximater(new Color[] { Color.White, Color.Black, Color.AliceBlue });
-            AtkinsonDitheringRGBByte atkinson = new AtkinsonDitheringRGBByte(ColorFunction);
-            byte[,,] bytes = ReadBitmapToColorBytes(image);
+            if (image == null)
+                throw new ArgumentNullException(nameof(image));
+            if (approximater == null)
+                throw new ArgumentNullException(nameof(approximater));
 
-            TempByteImageFormat temp = new TempByteImageFormat(bytes);
-            Console.WriteLine("\nВсё вроде работает нормально, начинаю конвертацию!\n\n");
-            atkinson.DoDithering(temp,approximater);
-
-            WriteToBitmap(image, temp.GetPixelChannels,worker, approximater);
-            Console.WriteLine($"Конвертация завершена. Файл находится по пути {worker.Path}");
-            return image;
-        }
-        private void ColorFunction(in byte[] input, ref byte[] output, ColorApproximater approximater)
-        {
-
-            switch (ColorFunctionMode)
+            try
             {
-                case 0:
-                    TrueColorBytesToWebSafeColorBytes(input, ref output);
-                    break;
-                default:
-                    TrueColorBytesToPalette(input, ref output, approximater);
-                    break;
+                var atkinson = new AtkinsonDitheringRGBByte(ColorFunction);
+                byte[,,] bytes = ReadBitmapToColorBytes(image);
+                var tempImage = new TempByteImageFormat(bytes);
+                atkinson.DoDithering(tempImage, approximater);
+                WriteToBitmap(image, tempImage.GetPixelChannels,worker,approximater);
+                return image;
+            }
+            catch (Exception ex)
+            {
+                throw new DitheringException("Dithering failed.", ex);
             }
         }
+
+        private void ColorFunction(in byte[] input, ref byte[] output, ColorApproximater approximater)
+        {
+            if (ColorFunctionMode == 0)
+                TrueColorBytesToWebSafeColorBytes(input, ref output);
+            else
+                TrueColorBytesToPalette(input, ref output, approximater);
+        }
+
         private void TrueColorBytesToWebSafeColorBytes(in byte[] input, ref byte[] output)
         {
             for (int i = 0; i < input.Length; i++)
@@ -1197,26 +1063,40 @@ namespace Dithering
                 output[i] = (byte)(Math.Round(input[i] / 51.0) * 51);
             }
         }
+
         private static void TrueColorBytesToPalette(in byte[] input, ref byte[] output, ColorApproximater approximater)
         {
             output = approximater.Convert((input[0], input[1], input[2]));
-            //output = new byte[] { i.R, i.G, i.B};
         }
 
         private byte[,,] ReadBitmapToColorBytes(Bitmap bitmap)
         {
-            byte[,,] returnValue = new byte[bitmap.Width, bitmap.Height, 3];
-            for (int x = 0; x < bitmap.Width; x++)
+            var rect = new Rectangle(0, 0, bitmap.Width, bitmap.Height);
+            var data = bitmap.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
+            byte[,,] bytes = new byte[bitmap.Width, bitmap.Height, 3];
+
+            try
             {
+                byte[] buffer = new byte[data.Stride * data.Height];
+                Marshal.Copy(data.Scan0, buffer, 0, buffer.Length);
+
                 for (int y = 0; y < bitmap.Height; y++)
                 {
-                    Color color = bitmap.GetPixel(x, y);
-                    returnValue[x, y, 0] = color.R;
-                    returnValue[x, y, 1] = color.G;
-                    returnValue[x, y, 2] = color.B;
+                    int srcRow = y * data.Stride;
+                    for (int x = 0; x < bitmap.Width; x++)
+                    {
+                        int srcIndex = srcRow + x * 3;
+                        bytes[x, y, 0] = buffer[srcIndex + 2]; // R
+                        bytes[x, y, 1] = buffer[srcIndex + 1]; // G
+                        bytes[x, y, 2] = buffer[srcIndex];     // B
+                    }
                 }
             }
-            return returnValue;
+            finally
+            {
+                bitmap.UnlockBits(data);
+            }
+            return bytes;
         }
 
         private void WriteToBitmap(Bitmap bitmap, Func<int, int, byte[]> reader, BinaryWorker worker, ColorApproximater approximater)
@@ -1228,14 +1108,26 @@ namespace Dithering
 
                     byte[] read = reader(x, y);
                     worker.FileValues.Add(approximater.GetColor((read[0], read[1], read[2])));
-                    Color color = Color.FromArgb(read[0], read[1], read[2]);
-                    //bitmap.SetPixel(x, y, color);
                 }
             }
             worker.Write((ushort)bitmap.Width, (ushort)bitmap.Height);
         }
     }
+    #endregion
+    public static class FileDirectoryTools
+    {
+        public static bool IsFileAccessible(string filePath)
+        {
+            if (string.IsNullOrEmpty(filePath))
+            {
+                return false; // Путь не должен быть пустым
+            }
 
+            return File.Exists(filePath) &&
+                   (new FileInfo(filePath).Attributes & FileAttributes.ReadOnly) == 0; // Проверка на доступность
+        }
+    }
+    
     /// <summary>
     /// This code is the intellectual property of MKSO4KA (Mixailkin) and is protected by copyright law.
     /// Unauthorized copying, modification, or distribution of this code without explicit permission from the author is strictly prohibited.
@@ -1263,11 +1155,23 @@ namespace Dithering
         /// <br></br>     ColorApproximater Approximater = new ColorApproximater(list_colors);
         /// <br></br>     var cl = Approximater.Convert(color);
         /// </summary>
-        public ColorApproximater(string path2tiles="", int maxlenght = 1000)
+        public ColorApproximater(string path2tiles = "", int maxlenght = 1000)
         {
             TilesPath = path2tiles;
             _maxLenght = maxlenght;
-            _pixels = new Pixels(TilesPath == "" ? TilesDefault : File.ReadAllLines(TilesPath));
+            if (TilesPath == "")
+            {
+                _pixels = new Pixels(TilesDefault);
+            }
+            else
+            {
+                if (!FileDirectoryTools.IsFileAccessible(TilesPath))
+                {
+                    throw new FileNotFoundException("Файл не доступен или не существует: " + TilesPath);
+                }
+                _pixels = new Pixels(File.ReadAllLines(TilesPath));
+            }
+            
             _hueRgbRange = SetHueEqRgb();
             _findedColors = [];
             _convertedColors = [];
@@ -1426,18 +1330,18 @@ namespace Dithering
         {
             get { return _maxLenght; }
         }
-        private  List<(byte, byte, byte)> _findedColors;
+        private List<(byte, byte, byte)> _findedColors;
         private List<(byte, byte, byte)> _convertedColors;
-        public List<List<(byte, byte, byte)>> _hueRgbRange;
-        public List<List<(byte, byte, byte)>> _colors;
+        private List<List<(byte, byte, byte)>> _hueRgbRange;
+        private List<List<(byte, byte, byte)>> _colors;
         private (byte, byte, byte)[] _list_colors;
         private static List<int> skip_colorslist = new List<int>();
         private Pixels _pixels;
         /// <summary>
         /// Парсит данные тайлов из файла tiles.txt и заполняет массивы цветов и тайлов.
         /// </summary>
-        
-        public void Reset()
+
+        private void Reset()
         {
             _findedColors.Clear();
             _convertedColors.Clear();
@@ -1452,7 +1356,7 @@ namespace Dithering
         ///The SetHueEqRgb method creates a new list of color lists, where each inner list contains colors corresponding to a specific degree range. This method uses the GetColorsFromHueRange method.
         /// </summary>
         /// <returns></returns>
-        public static List<List<(byte, byte, byte)>> SetHueEqRgb()
+        private static List<List<(byte, byte, byte)>> SetHueEqRgb()
         {
             (float, float) Hue;
             List<List<(byte, byte, byte)>> list = new List<List<(byte, byte, byte)>>(24);
@@ -1512,7 +1416,7 @@ namespace Dithering
         /// <summary>
         ///The SetColors method initializes the _colors list and fills it with the colors from _list_colors. It then sorts each internal list by its color degree value
         /// </summary>
-        public void SetColors()
+        private void SetColors()
         {
             for (int i = 0; i < 24; i += 1)
             {
@@ -1532,11 +1436,11 @@ namespace Dithering
                     skip_colorslist.Add(i);
             }
         }
-        public List<List<(byte, byte, byte)>> GetColors()
+        private List<List<(byte, byte, byte)>> GetColors()
         {
             return _colors;
         }
-        public List<(byte, byte, byte)> GetColors(int id)
+        private List<(byte, byte, byte)> GetColors(int id)
         {
             return _colors[id];
         }
@@ -1632,13 +1536,13 @@ namespace Dithering
             _convertedColors = _convertedColors.Skip(MaxLenght / 2).ToList();
         }
 
-        public static float ColorDiff(Color c1, Color c2)
+        private static float ColorDiff(Color c1, Color c2)
         {
             return (float)Math.Sqrt((c1.R - c2.R) * (c1.R - c2.R)
                                  + (c1.G - c2.G) * (c1.G - c2.G)
                                  + (c1.B - c2.B) * (c1.B - c2.B));
         }
-        public static float ColorDiff((byte, byte, byte) c1, (byte, byte, byte) c2)
+        private static float ColorDiff((byte, byte, byte) c1, (byte, byte, byte) c2)
         {
             return (float)Math.Sqrt((c1.Item1 - c2.Item1) * (c1.Item1 - c2.Item1)
                                  + (c1.Item2 - c2.Item2) * (c1.Item2 - c2.Item2)
@@ -1714,7 +1618,7 @@ namespace Dithering
             return list;
         }
 
-        
+
 
     }
 }

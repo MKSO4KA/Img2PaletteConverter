@@ -1,0 +1,76 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\USER\\source\\repos\\MKSO4KA\\Img2Palette\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{3A4ADFA6-D221-4D45-8405-D04BF4ADC28E}|ConsoleApp2.csproj|c:\\users\\user\\source\\repos\\mkso4ka\\img2palette\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{3A4ADFA6-D221-4D45-8405-D04BF4ADC28E}|ConsoleApp2.csproj|solutionrelative:program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{3A4ADFA6-D221-4D45-8405-D04BF4ADC28E}|ConsoleApp2.csproj|c:\\users\\user\\source\\repos\\mkso4ka\\img2palette\\partial\u0027s.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{3A4ADFA6-D221-4D45-8405-D04BF4ADC28E}|ConsoleApp2.csproj|solutionrelative:partial\u0027s.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 3,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{1c4feeaa-4718-4aa9-859d-94ce25d182ba}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:128:0:{116d2292-e37d-41cd-a077-ebacac4c8cc4}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "Partial\u0027s.cs",
+              "DocumentMoniker": "C:\\Users\\USER\\source\\repos\\MKSO4KA\\Img2Palette\\Partial\u0027s.cs",
+              "RelativeDocumentMoniker": "Partial\u0027s.cs",
+              "ToolTip": "C:\\Users\\USER\\source\\repos\\MKSO4KA\\Img2Palette\\Partial\u0027s.cs",
+              "RelativeToolTip": "Partial\u0027s.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAK4AAAAjAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-03-04T08:51:35.532Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\Users\\USER\\source\\repos\\MKSO4KA\\Img2Palette\\Program.cs",
+              "RelativeDocumentMoniker": "Program.cs",
+              "ToolTip": "C:\\Users\\USER\\source\\repos\\MKSO4KA\\Img2Palette\\Program.cs",
+              "RelativeToolTip": "Program.cs",
+              "ViewState": "AgIAAM0CAAAAAAAAAAASwDADAAAIAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-03-04T08:51:34.586Z",
+              "EditorCaption": ""
+            }
+          ]
+        },
+        {
+          "DockedWidth": 151,
+          "SelectedChildIndex": -1,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{34e76e81-ee4a-11d0-ae2e-00a0c90fffc3}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{d78612c7-9962-4b83-95d9-268046dad23a}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
